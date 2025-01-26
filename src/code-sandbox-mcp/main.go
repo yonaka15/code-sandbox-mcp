@@ -377,7 +377,12 @@ func runInDocker(ctx context.Context, cmd []string, dockerImage string, code str
 			// Update container command to initialize module and download dependencies
 			config.Cmd = []string{
 				"/bin/sh", "-c",
-				fmt.Sprintf("cd /tmp && go mod tidy && %s", strings.Join(cmd, " ")),
+				"cd /tmp && go mod tidy && go run main.go",
+			}
+		} else {
+			config.Cmd = []string{
+				"/bin/sh", "-c",
+				"cd /tmp && go mod init sandbox && go run main.go",
 			}
 		}
 
