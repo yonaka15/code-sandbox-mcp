@@ -183,7 +183,7 @@ jobs:
           cd bin
           echo "### 🔒 SHA256 Checksums" > checksums.txt
           echo '```' >> checksums.txt
-          sha256sum docker-sandbox-mcp-* >> checksums.txt
+          sha256sum code-sandbox-mcp-* >> checksums.txt
           echo '```' >> checksums.txt
 
       - name: Create Release
@@ -195,12 +195,12 @@ jobs:
           draft: false
           prerelease: ${{ github.event.inputs.prerelease == 'true' }}
           files: |
-            bin/docker-sandbox-mcp-linux-amd64
-            bin/docker-sandbox-mcp-linux-arm64
-            bin/docker-sandbox-mcp-darwin-amd64
-            bin/docker-sandbox-mcp-darwin-arm64
-            bin/docker-sandbox-mcp-windows-amd64.exe
-            bin/docker-sandbox-mcp-windows-arm64.exe
+            bin/code-sandbox-mcp-linux-amd64
+            bin/code-sandbox-mcp-linux-arm64
+            bin/code-sandbox-mcp-darwin-amd64
+            bin/code-sandbox-mcp-darwin-arm64
+            bin/code-sandbox-mcp-windows-amd64.exe
+            bin/code-sandbox-mcp-windows-arm64.exe
           body: |
             ## 🎉 Release v${{ steps.get_version.outputs.version }}
             

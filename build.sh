@@ -65,7 +65,7 @@ build_for_platform() {
     fi
 
     echo -e "${GREEN}Building for ${GOOS}/${GOARCH}...${NC}"
-    GOOS=$GOOS GOARCH=$GOARCH go build -ldflags="${LDFLAGS}" ${BUILDFLAGS} -o "$OUTPUT" ./src/docker-sandbox-mcp
+    GOOS=$GOOS GOARCH=$GOARCH go build -ldflags="${LDFLAGS}" ${BUILDFLAGS} -o "$OUTPUT" ./src/code-sandbox-mcp
     
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}✓ Successfully built:${NC} $OUTPUT"

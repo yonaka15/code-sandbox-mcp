@@ -97,7 +97,7 @@ func installConfig() error {
 	}
 
 	// Add or update our server config
-	config.MCPServers["docker-sandbox-mcp"] = MCPServer{
+	config.MCPServers["code-sandbox-mcp"] = MCPServer{
 		Command: execPath,
 		Args:    []string{},
 		Env:     map[string]string{},
@@ -113,7 +113,7 @@ func installConfig() error {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
 
-	fmt.Printf("Added docker-sandbox-mcp to %s\n", configPath)
+	fmt.Printf("Added code-sandbox-mcp to %s\n", configPath)
 	return nil
 }
 

@@ -45,7 +45,7 @@ The `build.sh` script supports several options:
 ```
 code-sandbox-mcp/
 ├── src/
-│   └── docker-sandbox-mcp/
+│   └── code-sandbox-mcp/
 │       └── main.go       # Main application code
 ├── bin/                  # Compiled binaries
 ├── build.sh             # Build script

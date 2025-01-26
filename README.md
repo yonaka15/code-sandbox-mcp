@@ -44,7 +44,7 @@ The installer will:
 2. Place the binary in a directory in your PATH
 3. Make it executable (Unix-like systems only):
    ```bash
-   chmod +x docker-sandbox-mcp
+   chmod +x code-sandbox-mcp
    ```
 
 ## 🔧 Configuration
