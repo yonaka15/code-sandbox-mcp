@@ -27,6 +27,16 @@ A secure sandbox environment for executing code within Docker containers. This M
 curl -fsSL https://raw.githubusercontent.com/Automata-Labs-team/code-sandbox-mcp/main/install.sh | bash
 ```
 
+Example output:
+```
+Downloading latest release...
+Installing to /home/user/.local/share/code-sandbox-mcp/code-sandbox-mcp...
+Adding to Claude Desktop configuration...
+Added code-sandbox-mcp to /home/user/.config/Claude/claude_desktop_config.json
+Installation complete!
+You can now use code-sandbox-mcp with Claude Desktop or other AI applications.
+```
+
 #### Windows
 ```powershell
 # Run in PowerShell
