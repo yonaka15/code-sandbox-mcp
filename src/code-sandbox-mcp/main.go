@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/Automata-Labs-team/code-sandbox-mcp/src/code-sandbox-mcp/dependencies"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
@@ -227,28 +228,32 @@ func main() {
 	server := mcp_golang.NewServer(stdio.NewStdioServerTransport())
 
 	// Register a tool to run code in a docker container
-	err := server.RegisterTool("run_code", "Run code in a docker container. The supported languages are: "+GenerateEnumTag(), func(arguments RunCodeArguments) (*mcp_golang.ToolResponse, error) {
-		// Validate language
-		if !arguments.Language.IsValid() {
-			return nil, fmt.Errorf("unsupported language: %s", arguments.Language)
-		}
+	err := server.RegisterTool("run_code",
+		"Run code in a docker container with automatic dependency detection and installation. "+
+			"The tool will analyze your code and install required packages automatically. "+
+			"The supported languages are: "+GenerateEnumTag(),
+		func(arguments RunCodeArguments) (*mcp_golang.ToolResponse, error) {
+			// Validate language
+			if !arguments.Language.IsValid() {
+				return nil, fmt.Errorf("unsupported language: %s", arguments.Language)
+			}
 
-		config := supportedLanguages[arguments.Language]
-		var cmd []string
-		if arguments.Language == Go {
-			// For Go, we need to write the code to a file
-			cmd = append(arguments.Entrypoint, "/tmp/main.go")
-		} else {
-			// For other languages, pass code directly
-			cmd = append(arguments.Entrypoint, arguments.Code)
-		}
+			config := supportedLanguages[arguments.Language]
+			var cmd []string
+			if arguments.Language == Go {
+				// For Go, we need to write the code to a file
+				cmd = append(arguments.Entrypoint, "/tmp/main.go")
+			} else {
+				// For other languages, pass code directly
+				cmd = append(arguments.Entrypoint, arguments.Code)
+			}
 
-		logs, err := runInDocker(context.Background(), cmd, config.Image, arguments.Code, arguments.Language)
-		if err != nil {
-			return mcp_golang.NewToolResponse(mcp_golang.NewTextContent(fmt.Sprintf("Error: %v", err))), nil
-		}
-		return mcp_golang.NewToolResponse(mcp_golang.NewTextContent(logs)), nil
-	})
+			logs, err := runInDocker(context.Background(), cmd, config.Image, arguments.Code, arguments.Language)
+			if err != nil {
+				return mcp_golang.NewToolResponse(mcp_golang.NewTextContent(fmt.Sprintf("Error: %v", err))), nil
+			}
+			return mcp_golang.NewToolResponse(mcp_golang.NewTextContent(logs)), nil
+		})
 	if err != nil {
 		panic(err)
 	}
@@ -307,6 +312,23 @@ func main() {
 }
 
 func runInDocker(ctx context.Context, cmd []string, dockerImage string, code string, language Language) (string, error) {
+	// Parse dependencies from code
+	deps := []string{}
+	switch language {
+	case Python:
+		deps = dependencies.ParsePythonImports(code)
+	case NodeJS:
+		deps = dependencies.ParseNodeImports(code)
+	case Go:
+		deps = dependencies.ParseGoImports(code)
+	}
+
+	// If we found dependencies, use the dependency-aware runner
+	if len(deps) > 0 {
+		return dependencies.RunWithDependencies(ctx, code, dependencies.Language(language), deps)
+	}
+
+	// Original implementation for code without dependencies
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return "", fmt.Errorf("failed to create Docker client: %w", err)
