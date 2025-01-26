@@ -323,23 +323,6 @@ func main() {
 }
 
 func runInDocker(ctx context.Context, cmd []string, dockerImage string, code string, language Language) (string, error) {
-	// Parse dependencies from code
-	deps := []string{}
-	switch language {
-	case Python:
-		deps = dependencies.ParsePythonImports(code)
-	case NodeJS:
-		deps = dependencies.ParseNodeImports(code)
-	case Go:
-		deps = dependencies.ParseGoImports(code)
-	}
-
-	// If we found dependencies, use the dependency-aware runner
-	if len(deps) > 0 {
-		return dependencies.RunWithDependencies(ctx, code, dependencies.Language(language), deps)
-	}
-
-	// Original implementation for code without dependencies
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return "", fmt.Errorf("failed to create Docker client: %w", err)
@@ -359,7 +342,7 @@ func runInDocker(ctx context.Context, cmd []string, dockerImage string, code str
 		Cmd:   cmd,
 	}
 
-	// For Go, we need to write the code to a file and mount it
+	// For Go, we need to write the code to a file and set up a module
 	if language == Go {
 		// Create a temporary directory for the Go file
 		tmpDir, err := os.MkdirTemp("", "docker-sandbox-*")
@@ -374,6 +357,28 @@ func runInDocker(ctx context.Context, cmd []string, dockerImage string, code str
 		err = os.WriteFile(tmpFile, []byte(code), 0644)
 		if err != nil {
 			return "", fmt.Errorf("failed to write code to temporary file: %w", err)
+		}
+
+		// Parse imports to detect dependencies
+		deps := dependencies.ParseGoImports(code)
+		if len(deps) > 0 {
+			// Create go.mod file
+			modContent := "module sandbox\n\ngo 1.21\n\nrequire (\n"
+			for _, dep := range deps {
+				modContent += "\t" + dep + " latest\n"
+			}
+			modContent += ")\n"
+
+			err = os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte(modContent), 0644)
+			if err != nil {
+				return "", fmt.Errorf("failed to write go.mod file: %w", err)
+			}
+
+			// Update container command to initialize module and download dependencies
+			config.Cmd = []string{
+				"/bin/sh", "-c",
+				fmt.Sprintf("cd /tmp && go mod tidy && %s", strings.Join(cmd, " ")),
+			}
 		}
 
 		// Mount the temporary directory
