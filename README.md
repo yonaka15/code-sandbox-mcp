@@ -29,7 +29,7 @@ curl -fsSL https://raw.githubusercontent.com/Automata-Labs-team/docker-sandbox-m
 
 #### Windows
 ```powershell
-# Run in PowerShell as Administrator
+# Run in PowerShell
 irm https://raw.githubusercontent.com/Automata-Labs-team/docker-sandbox-mcp/main/install.ps1 | iex
 ```
 
