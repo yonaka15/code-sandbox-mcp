@@ -1,7 +1,38 @@
+# Function to check if running in a terminal that supports colors
+function Test-ColorSupport {
+    # Check if we're in a terminal that supports VirtualTerminalLevel
+    $supportsVT = $false
+    try {
+        $supportsVT = [Console]::IsOutputRedirected -eq $false -and 
+                      [Console]::IsErrorRedirected -eq $false -and
+                      [Environment]::GetEnvironmentVariable("TERM") -ne $null
+    } catch {
+        $supportsVT = $false
+    }
+    return $supportsVT
+}
+
+# Function to write colored output
+function Write-ColoredMessage {
+    param(
+        [string]$Message,
+        [System.ConsoleColor]$Color = [System.ConsoleColor]::White
+    )
+    
+    if (Test-ColorSupport) {
+        $originalColor = [Console]::ForegroundColor
+        [Console]::ForegroundColor = $Color
+        Write-Host $Message
+        [Console]::ForegroundColor = $originalColor
+    } else {
+        Write-Host $Message
+    }
+}
+
 # Check if Docker is installed
 if (-not (Get-Command "docker" -ErrorAction SilentlyContinue)) {
-    Write-Host "Error: Docker is not installed" -ForegroundColor Red
-    Write-Host "Please install Docker Desktop for Windows:" -ForegroundColor Yellow
+    Write-ColoredMessage "Error: Docker is not installed" -Color Red
+    Write-ColoredMessage "Please install Docker Desktop for Windows:" -Color Yellow
     Write-Host "  https://docs.docker.com/desktop/install/windows-install/"
     exit 1
 }
@@ -10,12 +41,12 @@ if (-not (Get-Command "docker" -ErrorAction SilentlyContinue)) {
 try {
     docker info | Out-Null
 } catch {
-    Write-Host "Error: Docker daemon is not running" -ForegroundColor Red
-    Write-Host "Please start Docker Desktop and try again" -ForegroundColor Yellow
+    Write-ColoredMessage "Error: Docker daemon is not running" -Color Red
+    Write-ColoredMessage "Please start Docker Desktop and try again" -Color Yellow
     exit 1
 }
 
-Write-Host "Downloading latest release..." -ForegroundColor Green
+Write-ColoredMessage "Downloading latest release..." -Color Green
 
 # Determine architecture
 $arch = if ([Environment]::Is64BitOperatingSystem) { "amd64" } else { "386" }
@@ -25,7 +56,7 @@ $apiResponse = Invoke-RestMethod -Uri "https://api.github.com/repos/Automata-Lab
 $asset = $apiResponse.assets | Where-Object { $_.name -like "code-sandbox-mcp-windows-$arch.exe" }
 
 if (-not $asset) {
-    Write-Host "Error: Could not find release for windows-$arch" -ForegroundColor Red
+    Write-ColoredMessage "Error: Could not find release for windows-$arch" -Color Red
     exit 1
 }
 
@@ -34,12 +65,12 @@ $installDir = "$env:LOCALAPPDATA\code-sandbox-mcp"
 New-Item -ItemType Directory -Force -Path $installDir | Out-Null
 
 # Download and install the binary
-Write-Host "Installing to $installDir\code-sandbox-mcp.exe..." -ForegroundColor Green
+Write-ColoredMessage "Installing to $installDir\code-sandbox-mcp.exe..." -Color Green
 Invoke-WebRequest -Uri $asset.browser_download_url -OutFile "$installDir\code-sandbox-mcp.exe"
 
 # Add to Claude Desktop config
-Write-Host "Adding to Claude Desktop configuration..." -ForegroundColor Green
+Write-ColoredMessage "Adding to Claude Desktop configuration..." -Color Green
 & "$installDir\code-sandbox-mcp.exe" --install
 
-Write-Host "Installation complete!" -ForegroundColor Green
+Write-ColoredMessage "Installation complete!" -Color Green
 Write-Host "You can now use code-sandbox-mcp with Claude Desktop or other AI applications." 
