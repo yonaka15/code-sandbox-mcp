@@ -29,6 +29,30 @@ function Write-ColoredMessage {
     }
 }
 
+# Function to stop running instances
+function Stop-RunningInstances {
+    param(
+        [string]$ProcessName
+    )
+    
+    try {
+        $processes = Get-Process -Name $ProcessName -ErrorAction SilentlyContinue
+        if ($processes) {
+            $processes | ForEach-Object {
+                try {
+                    $_.Kill()
+                    $_.WaitForExit(1000)
+                } catch {
+                    # Ignore errors if process already exited
+                }
+            }
+            Start-Sleep -Seconds 1  # Give processes time to fully exit
+        }
+    } catch {
+        # Ignore errors if no processes found
+    }
+}
+
 # Check if Docker is installed
 if (-not (Get-Command "docker" -ErrorAction SilentlyContinue)) {
     Write-ColoredMessage "Error: Docker is not installed" -Color Red
@@ -52,8 +76,14 @@ Write-ColoredMessage "Downloading latest release..." -Color Green
 $arch = if ([Environment]::Is64BitOperatingSystem) { "amd64" } else { "386" }
 
 # Get the latest release URL
-$apiResponse = Invoke-RestMethod -Uri "https://api.github.com/repos/Automata-Labs-team/code-sandbox-mcp/releases/latest"
-$asset = $apiResponse.assets | Where-Object { $_.name -like "code-sandbox-mcp-windows-$arch.exe" }
+try {
+    $apiResponse = Invoke-RestMethod -Uri "https://api.github.com/repos/Automata-Labs-team/code-sandbox-mcp/releases/latest"
+    $asset = $apiResponse.assets | Where-Object { $_.name -like "code-sandbox-mcp-windows-$arch.exe" }
+} catch {
+    Write-ColoredMessage "Error: Failed to fetch latest release information" -Color Red
+    Write-Host $_.Exception.Message
+    exit 1
+}
 
 if (-not $asset) {
     Write-ColoredMessage "Error: Could not find release for windows-$arch" -Color Red
@@ -64,13 +94,41 @@ if (-not $asset) {
 $installDir = "$env:LOCALAPPDATA\code-sandbox-mcp"
 New-Item -ItemType Directory -Force -Path $installDir | Out-Null
 
-# Download and install the binary
+# Download to a temporary file first
+$tempFile = "$installDir\code-sandbox-mcp.tmp"
 Write-ColoredMessage "Installing to $installDir\code-sandbox-mcp.exe..." -Color Green
-Invoke-WebRequest -Uri $asset.browser_download_url -OutFile "$installDir\code-sandbox-mcp.exe"
+
+try {
+    # Download the binary to temporary file
+    Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $tempFile
+
+    # Stop any running instances
+    Stop-RunningInstances -ProcessName "code-sandbox-mcp"
+
+    # Try to move the temporary file to the final location
+    try {
+        Move-Item -Path $tempFile -Destination "$installDir\code-sandbox-mcp.exe" -Force
+    } catch {
+        Write-ColoredMessage "Error: Failed to install the binary. Please ensure no instances are running and try again." -Color Red
+        Remove-Item -Path $tempFile -ErrorAction SilentlyContinue
+        exit 1
+    }
+} catch {
+    Write-ColoredMessage "Error: Failed to download or install the binary" -Color Red
+    Write-Host $_.Exception.Message
+    Remove-Item -Path $tempFile -ErrorAction SilentlyContinue
+    exit 1
+}
 
 # Add to Claude Desktop config
 Write-ColoredMessage "Adding to Claude Desktop configuration..." -Color Green
-& "$installDir\code-sandbox-mcp.exe" --install
+try {
+    & "$installDir\code-sandbox-mcp.exe" --install
+} catch {
+    Write-ColoredMessage "Error: Failed to configure Claude Desktop" -Color Red
+    Write-Host $_.Exception.Message
+    exit 1
+}
 
 Write-ColoredMessage "Installation complete!" -Color Green
 Write-Host "You can now use code-sandbox-mcp with Claude Desktop or other AI applications." 

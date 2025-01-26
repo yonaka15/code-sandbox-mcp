@@ -40,7 +40,7 @@ case "$ARCH" in
     aarch64) ARCH="arm64" ;;
     arm64)   ARCH="arm64" ;;
     *)
-        echo "${RED}Unsupported architecture: $ARCH${NC}"
+        print_status "$RED" "Unsupported architecture: $ARCH"
         exit 1
         ;;
 esac
@@ -50,7 +50,7 @@ case "$OS" in
     linux)   OS="linux" ;;
     darwin)  OS="darwin" ;;
     *)
-        echo "${RED}Unsupported operating system: $OS${NC}"
+        print_status "$RED" "Unsupported operating system: $OS"
         exit 1
         ;;
 esac
@@ -77,7 +77,7 @@ print_status "$GREEN" "Downloading latest release..."
 LATEST_RELEASE_URL=$(curl -s https://api.github.com/repos/Automata-Labs-team/code-sandbox-mcp/releases/latest | grep "browser_download_url.*code-sandbox-mcp-$OS-$ARCH" | cut -d '"' -f 4)
 
 if [ -z "$LATEST_RELEASE_URL" ]; then
-    echo "${RED}Error: Could not find release for $OS-$ARCH${NC}"
+    print_status "$RED" "Error: Could not find release for $OS-$ARCH"
     exit 1
 fi
 
@@ -85,10 +85,30 @@ fi
 INSTALL_DIR="$HOME/.local/share/code-sandbox-mcp"
 mkdir -p "$INSTALL_DIR"
 
-# Download and install the binary
+# Download to a temporary file first
+TEMP_FILE="$INSTALL_DIR/code-sandbox-mcp.tmp"
 print_status "$GREEN" "Installing to $INSTALL_DIR/code-sandbox-mcp..."
-curl -L "$LATEST_RELEASE_URL" -o "$INSTALL_DIR/code-sandbox-mcp"
-chmod +x "$INSTALL_DIR/code-sandbox-mcp"
+
+if ! curl -L "$LATEST_RELEASE_URL" -o "$TEMP_FILE"; then
+    print_status "$RED" "Error: Failed to download the binary"
+    rm -f "$TEMP_FILE"
+    exit 1
+fi
+
+chmod +x "$TEMP_FILE"
+
+# Try to stop the existing process if it's running
+if [ -f "$INSTALL_DIR/code-sandbox-mcp" ]; then
+    pkill -f "$INSTALL_DIR/code-sandbox-mcp" >/dev/null 2>&1 || true
+    sleep 1  # Give it a moment to shut down
+fi
+
+# Move the temporary file to the final location
+if ! mv "$TEMP_FILE" "$INSTALL_DIR/code-sandbox-mcp"; then
+    print_status "$RED" "Error: Failed to install the binary. Please ensure no instances are running and try again."
+    rm -f "$TEMP_FILE"
+    exit 1
+fi
 
 # Add to Claude Desktop config
 print_status "$GREEN" "Adding to Claude Desktop configuration..."
