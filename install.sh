@@ -51,7 +51,7 @@ fi
 echo "${GREEN}Downloading latest release...${NC}"
 
 # Get the latest release URL
-LATEST_RELEASE_URL=$(curl -s https://api.github.com/repos/Automata-Labs-team/docker-sandbox-mcp/releases/latest | grep "browser_download_url.*docker-sandbox-mcp-$OS-$ARCH" | cut -d '"' -f 4)
+LATEST_RELEASE_URL=$(curl -s https://api.github.com/repos/Automata-Labs-team/code-sandbox-mcp/releases/latest | grep "browser_download_url.*code-sandbox-mcp-$OS-$ARCH" | cut -d '"' -f 4)
 
 if [ -z "$LATEST_RELEASE_URL" ]; then
     echo "${RED}Error: Could not find release for $OS-$ARCH${NC}"
@@ -59,17 +59,17 @@ if [ -z "$LATEST_RELEASE_URL" ]; then
 fi
 
 # Create installation directory
-INSTALL_DIR="$HOME/.local/share/docker-sandbox-mcp"
+INSTALL_DIR="$HOME/.local/share/code-sandbox-mcp"
 mkdir -p "$INSTALL_DIR"
 
 # Download and install the binary
-echo "${GREEN}Installing to $INSTALL_DIR/docker-sandbox-mcp...${NC}"
-curl -L "$LATEST_RELEASE_URL" -o "$INSTALL_DIR/docker-sandbox-mcp"
-chmod +x "$INSTALL_DIR/docker-sandbox-mcp"
+echo "${GREEN}Installing to $INSTALL_DIR/code-sandbox-mcp...${NC}"
+curl -L "$LATEST_RELEASE_URL" -o "$INSTALL_DIR/code-sandbox-mcp"
+chmod +x "$INSTALL_DIR/code-sandbox-mcp"
 
 # Add to Claude Desktop config
 echo "${GREEN}Adding to Claude Desktop configuration...${NC}"
-"$INSTALL_DIR/docker-sandbox-mcp" --install
+"$INSTALL_DIR/code-sandbox-mcp" --install
 
 echo "${GREEN}Installation complete!${NC}"
-echo "You can now use docker-sandbox-mcp with Claude Desktop or other AI applications." 
+echo "You can now use code-sandbox-mcp with Claude Desktop or other AI applications." 

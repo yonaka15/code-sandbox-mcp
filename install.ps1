@@ -21,8 +21,8 @@ Write-Host "Downloading latest release..." -ForegroundColor Green
 $arch = if ([Environment]::Is64BitOperatingSystem) { "amd64" } else { "386" }
 
 # Get the latest release URL
-$apiResponse = Invoke-RestMethod -Uri "https://api.github.com/repos/Automata-Labs-team/docker-sandbox-mcp/releases/latest"
-$asset = $apiResponse.assets | Where-Object { $_.name -like "docker-sandbox-mcp-windows-$arch.exe" }
+$apiResponse = Invoke-RestMethod -Uri "https://api.github.com/repos/Automata-Labs-team/code-sandbox-mcp/releases/latest"
+$asset = $apiResponse.assets | Where-Object { $_.name -like "code-sandbox-mcp-windows-$arch.exe" }
 
 if (-not $asset) {
     Write-Host "Error: Could not find release for windows-$arch" -ForegroundColor Red
@@ -30,16 +30,16 @@ if (-not $asset) {
 }
 
 # Create installation directory
-$installDir = "$env:LOCALAPPDATA\docker-sandbox-mcp"
+$installDir = "$env:LOCALAPPDATA\code-sandbox-mcp"
 New-Item -ItemType Directory -Force -Path $installDir | Out-Null
 
 # Download and install the binary
-Write-Host "Installing to $installDir\docker-sandbox-mcp.exe..." -ForegroundColor Green
-Invoke-WebRequest -Uri $asset.browser_download_url -OutFile "$installDir\docker-sandbox-mcp.exe"
+Write-Host "Installing to $installDir\code-sandbox-mcp.exe..." -ForegroundColor Green
+Invoke-WebRequest -Uri $asset.browser_download_url -OutFile "$installDir\code-sandbox-mcp.exe"
 
 # Add to Claude Desktop config
 Write-Host "Adding to Claude Desktop configuration..." -ForegroundColor Green
-& "$installDir\docker-sandbox-mcp.exe" --install
+& "$installDir\code-sandbox-mcp.exe" --install
 
 Write-Host "Installation complete!" -ForegroundColor Green
-Write-Host "You can now use docker-sandbox-mcp with Claude Desktop or other AI applications." 
+Write-Host "You can now use code-sandbox-mcp with Claude Desktop or other AI applications." 

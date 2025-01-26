@@ -58,10 +58,10 @@ build_for_platform() {
     local GOOS=$1
     local GOARCH=$2
     local EXTENSION=$3
-    local OUTPUT="bin/docker-sandbox-mcp-${GOOS}-${GOARCH}${EXTENSION}"
+    local OUTPUT="bin/code-sandbox-mcp-${GOOS}-${GOARCH}${EXTENSION}"
     
     if [ "$RELEASE" = true ]; then
-        OUTPUT="bin/docker-sandbox-mcp-${VERSION}-${GOOS}-${GOARCH}${EXTENSION}"
+        OUTPUT="bin/code-sandbox-mcp-${VERSION}-${GOOS}-${GOARCH}${EXTENSION}"
     fi
 
     echo -e "${GREEN}Building for ${GOOS}/${GOARCH}...${NC}"
@@ -71,7 +71,7 @@ build_for_platform() {
         echo -e "${GREEN}✓ Successfully built:${NC} $OUTPUT"
         # Create symlink for native platform
         if [ "$GOOS" = "$(go env GOOS)" ] && [ "$GOARCH" = "$(go env GOARCH)" ]; then
-            local SYMLINK="bin/docker-sandbox-mcp${EXTENSION}"
+            local SYMLINK="bin/code-sandbox-mcp${EXTENSION}"
             ln -sf "$(basename $OUTPUT)" "$SYMLINK"
             echo -e "${GREEN}✓ Created symlink:${NC} $SYMLINK -> $OUTPUT"
         fi
@@ -83,7 +83,7 @@ build_for_platform() {
 
 # Clean previous builds
 echo -e "${GREEN}Cleaning previous builds...${NC}"
-rm -f bin/docker-sandbox-mcp*
+rm -f bin/code-sandbox-mcp*
 
 # Build for Linux
 build_for_platform linux amd64 ""
