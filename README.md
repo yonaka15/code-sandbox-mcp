@@ -24,24 +24,23 @@ A secure sandbox environment for executing code within Docker containers. This M
 
 #### Unix-like Systems (Linux, macOS)
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Automata-Labs-team/docker-sandbox-mcp/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Automata-Labs-team/code-sandbox-mcp/main/install.sh | bash
 ```
 
 #### Windows
 ```powershell
 # Run in PowerShell
-irm https://raw.githubusercontent.com/Automata-Labs-team/docker-sandbox-mcp/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/Automata-Labs-team/code-sandbox-mcp/main/install.ps1 | iex
 ```
 
 The installer will:
 1. Check for Docker installation
 2. Download the appropriate binary for your system
-3. Add it to your PATH
-4. Create Claude Desktop configuration (if applicable)
+3. Create Claude Desktop configuration
 
 ### Manual Installation
 
-1. Download the latest release for your platform from the [releases page](https://github.com/Automata-Labs-team/docker-sandbox-mcp/releases)
+1. Download the latest release for your platform from the [releases page](https://github.com/Automata-Labs-team/code-sandbox-mcp/releases)
 2. Place the binary in a directory in your PATH
 3. Make it executable (Unix-like systems only):
    ```bash
@@ -59,8 +58,8 @@ The installer automatically creates the configuration file. If you need to manua
 // ~/.config/Claude/claude_desktop_config.json
 {
     "mcpServers": {
-        "docker-sandbox-mcp": {
-            "command": "/path/to/docker-sandbox-mcp",
+        "code-sandbox-mcp": {
+            "command": "/path/to/code-sandbox-mcp",
             "args": [],
             "env": {}
         }
@@ -73,8 +72,8 @@ The installer automatically creates the configuration file. If you need to manua
 // ~/Library/Application Support/Claude/claude_desktop_config.json
 {
     "mcpServers": {
-        "docker-sandbox-mcp": {
-            "command": "/path/to/docker-sandbox-mcp",
+        "code-sandbox-mcp": {
+            "command": "/path/to/code-sandbox-mcp",
             "args": [],
             "env": {}
         }
@@ -87,8 +86,8 @@ The installer automatically creates the configuration file. If you need to manua
 // %APPDATA%\Claude\claude_desktop_config.json
 {
     "mcpServers": {
-        "docker-sandbox-mcp": {
-            "command": "C:\\path\\to\\docker-sandbox-mcp.exe",
+        "code-sandbox-mcp": {
+            "command": "C:\\path\\to\\code-sandbox-mcp.exe",
             "args": [],
             "env": {}
         }
@@ -98,7 +97,7 @@ The installer automatically creates the configuration file. If you need to manua
 
 ### Other AI Applications
 
-For other AI applications that support MCP servers, configure them to use the `docker-sandbox-mcp` binary as their code execution backend.
+For other AI applications that support MCP servers, configure them to use the `code-sandbox-mcp` binary as their code execution backend.
 
 ## 🔧 Technical Details
 

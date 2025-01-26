@@ -13,8 +13,8 @@ This guide is for developers who want to build the project locally or contribute
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/Automata-Labs-team/docker-sandbox-mcp.git
-cd docker-sandbox-mcp
+git clone https://github.com/Automata-Labs-team/code-sandbox-mcp.git
+cd code-sandbox-mcp
 ```
 
 2. Build the project:
@@ -43,7 +43,7 @@ The `build.sh` script supports several options:
 ## Project Structure
 
 ```
-docker-sandbox-mcp/
+code-sandbox-mcp/
 ├── src/
 │   └── docker-sandbox-mcp/
 │       └── main.go       # Main application code
