@@ -98,10 +98,21 @@ func installConfig() error {
 	}
 
 	// Add or update our server config
-	config.MCPServers["code-sandbox-mcp"] = MCPServer{
-		Command: execPath,
-		Args:    []string{},
-		Env:     map[string]string{},
+	var command string
+	if runtime.GOOS == "windows" {
+		command = "cmd"
+		config.MCPServers["code-sandbox-mcp"] = MCPServer{
+			Command: command,
+			Args:    []string{"/c", execPath},
+			Env:     map[string]string{},
+		}
+	} else {
+		command = "/usr/bin/env"
+		config.MCPServers["code-sandbox-mcp"] = MCPServer{
+			Command: command,
+			Args:    []string{execPath},
+			Env:     map[string]string{},
+		}
 	}
 
 	// Write the updated config
