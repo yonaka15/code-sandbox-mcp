@@ -46,6 +46,58 @@ The installer will:
    ```bash
    chmod +x code-sandbox-mcp
    ```
+## 🛠️ Available Tools
+
+#### `run_code`
+Executes code snippets in an isolated Docker container.
+
+**Parameters:**
+- `code` (string, required): The code to run
+- `language` (enum, required): Programming language to use
+  - Supported values: `python`, `go`, `nodejs`
+- `entrypoint` (string[], required): Command to run the code
+  - Examples:
+    - Python: `["python", "-c"]`
+    - Node.js: `["node", "-e"]`
+    - Go: `["go", "run"]`
+
+**Returns:**
+- Text content containing the execution output (stdout + stderr)
+
+**Features:**
+- Automatic dependency detection and installation
+  - Python: Detects imports and installs via pip
+  - Node.js: Detects require/import statements and installs via npm
+  - Go: Detects imports and installs via go get
+- Automatic language-specific Docker image selection
+- TypeScript/JSX support with appropriate flags
+- Special handling for Go (code written to temporary file)
+- Real-time output streaming
+
+#### `run_project`
+Executes a project directory in a containerized environment.
+
+**Parameters:**
+- `project_dir` (string, required): Directory containing the project to run
+- `language` (enum, required): Programming language to use
+  - Supported values: `python`, `go`, `nodejs`
+- `entrypoint` (string[], required): Command to run the project
+  - Examples:
+    - Python: `["python", "main.py"]`
+    - Node.js: `["node", "index.js"]`
+    - Go: `["go", "run", "."]`
+- `background` (boolean, optional): Whether to run in background mode
+
+**Returns:**
+- For foreground processes: Text content containing execution output
+- For background processes: Container ID and initial logs
+
+**Features:**
+- Automatic dependency detection and installation
+- Volume mounting of project directory
+- Background process support for long-running services
+- Language-specific configuration handling
+- Real-time log streaming
 
 ## 🔧 Configuration
 
@@ -113,6 +165,25 @@ For other AI applications that support MCP servers, configure them to use the `c
 
 The sandbox automatically detects and installs dependencies:
 
+- **Python**: 
+  - Detects imports like `import requests`, `from PIL import Image`
+  - Handles aliased imports (e.g., `PIL` → `pillow`)
+  - Filters out standard library imports
+  - Supports both direct imports and `__import__()` calls
+
+- **Node.js**: 
+  - Detects `require()` statements and ES6 imports
+  - Handles scoped packages (e.g., `@org/package`)
+  - Supports dynamic imports (`import()`)
+  - Filters out built-in Node.js modules
+
+- **Go**: 
+  - Detects package imports in both single-line and grouped formats
+  - Handles named and dot imports
+  - Filters out standard library packages
+  - Supports external dependencies via `go get`
+
+For project execution, the following files are used:
 - **Python**: requirements.txt, pyproject.toml, setup.py
 - **Go**: go.mod
 - **Node.js**: package.json
