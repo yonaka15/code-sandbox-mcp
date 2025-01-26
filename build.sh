@@ -61,7 +61,7 @@ build_for_platform() {
     local OUTPUT="bin/code-sandbox-mcp-${GOOS}-${GOARCH}${EXTENSION}"
     
     if [ "$RELEASE" = true ]; then
-        OUTPUT="bin/code-sandbox-mcp-${VERSION}-${GOOS}-${GOARCH}${EXTENSION}"
+        OUTPUT="bin/code-sandbox-mcp-${GOOS}-${GOARCH}${EXTENSION}"
     fi
 
     echo -e "${GREEN}Building for ${GOOS}/${GOARCH}...${NC}"
