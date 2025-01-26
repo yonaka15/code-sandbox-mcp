@@ -1,7 +1,7 @@
 # Code Sandbox MCP 🐳
 
 A secure sandbox environment for executing code within Docker containers. This MCP server provides AI applications with a safe and isolated environment for running code while maintaining security through containerization.
-
+![Screenshot from 2025-01-26 02-37-42](https://github.com/user-attachments/assets/c3fcf202-24a2-488a-818f-ffab6f881849)
 ## 🌟 Features
 
 - **Multi-Language Support**: Run Python, Go, and Node.js code in isolated Docker containers
