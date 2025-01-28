@@ -65,11 +65,6 @@ Executes code snippets in an isolated Docker container.
 - `code` (string, required): The code to run
 - `language` (enum, required): Programming language to use
   - Supported values: `python`, `go`, `nodejs`
-- `entrypoint` (string[], required): Command to run the code
-  - Examples:
-    - Python: `["python", "-c"]`
-    - Node.js: `["node", "-e"]`
-    - Go: `["go", "run"]`
 
 **Returns:**
 - Text content containing the execution output (stdout + stderr)
@@ -91,11 +86,11 @@ Executes a project directory in a containerized environment.
 - `project_dir` (string, required): Directory containing the project to run
 - `language` (enum, required): Programming language to use
   - Supported values: `python`, `go`, `nodejs`
-- `entrypoint` (string[], required): Command to run the project
+- `entrypoint` (string, required): Command to run the project
   - Examples:
-    - Python: `["python", "main.py"]`
-    - Node.js: `["node", "index.js"]`
-    - Go: `["go", "run", "."]`
+    - Python: `python main.py`
+    - Node.js: `node index.js`
+    - Go: `go run .`
 - `background` (boolean, optional): Whether to run in background mode
 
 **Returns:**

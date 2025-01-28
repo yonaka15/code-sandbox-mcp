@@ -3,4 +3,5 @@ venv/
 bin/
 .DS_Store
 # Test directory
-test_code/
+test_code/*
+src/code-sandbox-mcp/vendor

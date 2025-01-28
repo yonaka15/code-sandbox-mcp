@@ -58,16 +58,18 @@ build_for_platform() {
     local GOOS=$1
     local GOARCH=$2
     local EXTENSION=$3
-    local OUTPUT="bin/code-sandbox-mcp-${GOOS}-${GOARCH}${EXTENSION}"
+    local OUTPUT="$(pwd)/bin/code-sandbox-mcp-${GOOS}-${GOARCH}${EXTENSION}"
     
     if [ "$RELEASE" = true ]; then
-        OUTPUT="bin/code-sandbox-mcp-${GOOS}-${GOARCH}${EXTENSION}"
+        OUTPUT="$(pwd)/bin/code-sandbox-mcp-${GOOS}-${GOARCH}${EXTENSION}"
     fi
 
     echo -e "${GREEN}Building for ${GOOS}/${GOARCH}...${NC}"
-    GOOS=$GOOS GOARCH=$GOARCH go build -ldflags="${LDFLAGS}" ${BUILDFLAGS} -o "$OUTPUT" ./src/code-sandbox-mcp
+    pushd src/code-sandbox-mcp
+    GOOS=$GOOS GOARCH=$GOARCH go build -ldflags="${LDFLAGS}" ${BUILDFLAGS} -o "$OUTPUT" .
     
     if [ $? -eq 0 ]; then
+        popd
         echo -e "${GREEN}✓ Successfully built:${NC} $OUTPUT"
         # Create symlink for native platform
         if [ "$GOOS" = "$(go env GOOS)" ] && [ "$GOARCH" = "$(go env GOARCH)" ]; then
@@ -76,6 +78,7 @@ build_for_platform() {
             echo -e "${GREEN}✓ Created symlink:${NC} $SYMLINK -> $OUTPUT"
         fi
     else
+        popd
         echo -e "${RED}✗ Failed to build for ${GOOS}/${GOARCH}${NC}"
         return 1
     fi
