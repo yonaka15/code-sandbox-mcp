@@ -76,7 +76,8 @@ func main() {
 		mcp.WithDescription(
 			"Run code in a docker container with automatic dependency detection and installation. \n"+
 				"The tool will analyze your code and install required packages automatically. \n"+
-				"The supported languages are: "+GenerateEnumTag(),
+				"The supported languages are: "+GenerateEnumTag()+". \n"+
+				"Returns the execution logs of the container.",
 		),
 		mcp.WithString("code",
 			mcp.Required(),
@@ -106,7 +107,7 @@ func main() {
 		),
 		mcp.WithString("entrypointCmd",
 			mcp.Required(),
-			mcp.Description("Entrypoint command to run at the root of the project directory. Returns the container ID to access the logs of its resource"),
+			mcp.Description("Entrypoint command to run at the root of the project directory. Returns the container ID to access container Resources"),
 		),
 	)
 
