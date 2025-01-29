@@ -95,11 +95,13 @@ func main() {
 	// Register dynamic resource for container logs
 	// Dynamic resource example - Container Logs by ID
 	template := mcp.NewResourceTemplate(
-		"container://{id}/logs",
+		"containers://{id}/logs",
 		"Container Logs",
 		mcp.WithTemplateDescription("Returns all container logs"),
 		mcp.WithTemplateMIMEType("text/plain"),
+		mcp.WithTemplateAnnotations([]mcp.Role{mcp.RoleAssistant, mcp.RoleUser}, 0.5),
 	)
+
 	s.AddResourceTemplate(template, resources.GetContainerLogs)
 	s.AddTool(runCodeTool, tools.RunCodeSandbox)
 	s.AddTool(runProjectTool, tools.RunProjectSandbox)
