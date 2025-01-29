@@ -75,7 +75,8 @@ func main() {
 		mcp.WithDescription(
 			"Run a code project in a docker container. \n"+
 				"The tool will analyze your code and install required packages automatically. \n"+
-				"The supported languages are: "+GenerateEnumTag(),
+				"The supported languages are: "+GenerateEnumTag()+". \n"+
+				"Returns the initial logs of the container and resource URI to access the container logs Resource.",
 		),
 		mcp.WithString("projectDir",
 			mcp.Required(),
@@ -88,7 +89,7 @@ func main() {
 		),
 		mcp.WithString("entrypointCmd",
 			mcp.Required(),
-			mcp.Description("Entrypoint command to run at the root of the project directory. Returns the container ID to access container Resources"),
+			mcp.Description("Entrypoint command to run at the root of the project directory."),
 		),
 	)
 
@@ -97,7 +98,7 @@ func main() {
 	template := mcp.NewResourceTemplate(
 		"containers://{id}/logs",
 		"Container Logs",
-		mcp.WithTemplateDescription("Returns all container logs"),
+		mcp.WithTemplateDescription("Returns all container logs from the specified container. Logs are returned as a single text resource."),
 		mcp.WithTemplateMIMEType("text/plain"),
 		mcp.WithTemplateAnnotations([]mcp.Role{mcp.RoleAssistant, mcp.RoleUser}, 0.5),
 	)
