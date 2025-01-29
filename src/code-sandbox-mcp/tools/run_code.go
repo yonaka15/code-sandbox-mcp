@@ -210,7 +210,7 @@ loop:
 		}
 	}
 
-	out, err := cli.ContainerLogs(ctx, sandboxContainer.ID, container.LogsOptions{ShowStdout: true, ShowStderr: true})
+	out, err := cli.ContainerLogs(ctx, sandboxContainer.ID, container.LogsOptions{})
 	if err != nil {
 		return "", fmt.Errorf("failed to get container logs: %w", err)
 	}
