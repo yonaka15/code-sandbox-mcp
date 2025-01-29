@@ -54,7 +54,7 @@ func GetContainerLogs(ctx context.Context, request mcp.ReadResourceRequest) ([]i
 	return []interface{}{
 		mcp.TextResourceContents{
 			ResourceContents: mcp.ResourceContents{
-				URI:      fmt.Sprintf("container://%s/logs", containerID),
+				URI:      fmt.Sprintf("containers://%s/logs", containerID),
 				MIMEType: "text/plain",
 			},
 			Text: combined,
