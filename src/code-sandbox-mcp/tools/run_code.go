@@ -210,11 +210,11 @@ loop:
 		}
 	}
 
-	out, err := cli.ContainerLogs(ctx, sandboxContainer.ID, container.LogsOptions{})
+	out, err := cli.ContainerLogs(ctx, sandboxContainer.ID, container.LogsOptions{ShowStdout: true, ShowStderr: true, Follow: false, })
 	if err != nil {
 		return "", fmt.Errorf("failed to get container logs: %w", err)
 	}
-
+	defer out.Close()
 	var outBuf, errBuf bytes.Buffer
 	_, err = stdcopy.StdCopy(&outBuf, &errBuf, out)
 	if err != nil {
