@@ -3,7 +3,6 @@ package tools
 import (
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -63,11 +62,11 @@ func runProjectInDocker(ctx context.Context, progressToken mcp.ProgressToken, cm
 		},
 	)
 	// Pull the Docker image
-	reader, err := cli.ImagePull(ctx, dockerImage, image.PullOptions{})
+	_, err = cli.ImagePull(ctx, dockerImage, image.PullOptions{})
 	if err != nil {
 		return "", fmt.Errorf("failed to pull Docker image %s: %w", dockerImage, err)
 	}
-	io.Copy(os.Stdout, reader)
+
 
 	// Check for dependency files and prepare install command
 	var hasDepFile bool
