@@ -8,6 +8,7 @@ import (
 
 	"github.com/Automata-Labs-team/code-sandbox-mcp/installer"
 	deps "github.com/Automata-Labs-team/code-sandbox-mcp/languages"
+	"github.com/Automata-Labs-team/code-sandbox-mcp/resources"
 	"github.com/Automata-Labs-team/code-sandbox-mcp/tools"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -94,8 +95,30 @@ func main() {
 				"The tool will analyze your code and install required packages automatically. \n"+
 				"The supported languages are: "+GenerateEnumTag(),
 		),
+		mcp.WithString("projectDir",
+			mcp.Required(),
+			mcp.Description("Location of the project to run"),
+		),
+		mcp.WithString("language",
+			mcp.Required(),
+			mcp.Description("The programming language to use"),
+			mcp.Enum(deps.AllLanguages.ToArray()...),
+		),
+		mcp.WithString("entrypointCmd",
+			mcp.Required(),
+			mcp.Description("Entrypoint command to run at the root of the project directory. Returns the container ID to access the logs of its resource"),
+		),
 	)
 
+	// Register dynamic resource for container logs
+	// Dynamic resource example - Container Logs by ID
+	template := mcp.NewResourceTemplate(
+		"container://{id}/logs",
+		"Container Logs",
+		mcp.WithTemplateDescription("Returns all container logs"),
+		mcp.WithTemplateMIMEType("text/plain"),
+	)
+	s.AddResourceTemplate(template, resources.GetContainerLogs)
 	s.AddTool(runCodeTool, tools.RunCodeSandbox)
 	s.AddTool(runProjectTool, tools.RunProjectSandbox)
 
