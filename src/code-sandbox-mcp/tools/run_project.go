@@ -1,7 +1,6 @@
 package tools
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -13,8 +12,8 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
-	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/mark3labs/mcp-go/server"
 )
 
 func RunProjectSandbox(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -22,17 +21,13 @@ func RunProjectSandbox(ctx context.Context, request mcp.CallToolRequest) (*mcp.C
 	if !ok {
 		return nil, fmt.Errorf("invalid language")
 	}
-	entrypoint, ok := request.Params.Arguments["entrypoint"].(string)
+	entrypoint, ok := request.Params.Arguments["entrypointCmd"].(string)
 	if !ok {
 		return nil, fmt.Errorf("invalid entrypoint")
 	}
 	projectDir, ok := request.Params.Arguments["projectDir"].(string)
 	if !ok {
 		return nil, fmt.Errorf("invalid projectDir")
-	}
-	background, ok := request.Params.Arguments["background"].(bool)
-	if !ok {
-		return nil, fmt.Errorf("invalid background")
 	}
 
 	// Validate project directory
@@ -45,28 +40,32 @@ func RunProjectSandbox(ctx context.Context, request mcp.CallToolRequest) (*mcp.C
 	}
 
 	config := deps.SupportedLanguages[language]
-	logs, containerId, err := runProjectInDocker(context.Background(), strings.Fields(entrypoint), config.Image, projectDir, language, background)
+	containerId, err := runProjectInDocker(context.Background(), request.Params.Meta.ProgressToken, strings.Fields(entrypoint), config.Image, projectDir, language)
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("Error: %v", err)), nil
 	}
 
-	if background {
-		return mcp.NewToolResultText(fmt.Sprintf("Container started successfully with ID: %s\nLogs:\n%s", containerId, logs)), nil
-	}
-	return mcp.NewToolResultText(logs), nil
+	return mcp.NewToolResultText(containerId), nil
 }
 
-func runProjectInDocker(ctx context.Context, cmd []string, dockerImage string, projectDir string, language deps.Language, background bool) (string, string, error) {
+func runProjectInDocker(ctx context.Context, progressToken mcp.ProgressToken, cmd []string, dockerImage string, projectDir string, language deps.Language) (string, error) {
+	server := server.ServerFromContext(ctx)
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
-		return "", "", fmt.Errorf("failed to create Docker client: %w", err)
+		return "", fmt.Errorf("failed to create Docker client: %w", err)
 	}
 	defer cli.Close()
-
+	server.SendNotificationToClient(
+		"notifications/progress",
+		map[string]interface{}{
+			"progress":      10,
+			"progressToken": progressToken,
+		},
+	)
 	// Pull the Docker image
-	reader, err := cli.ImagePull(ctx, "docker.io/library/"+dockerImage, image.PullOptions{})
+	reader, err := cli.ImagePull(ctx, dockerImage, image.PullOptions{})
 	if err != nil {
-		return "", "", fmt.Errorf("failed to pull Docker image %s: %w", dockerImage, err)
+		return "", fmt.Errorf("failed to pull Docker image %s: %w", dockerImage, err)
 	}
 	io.Copy(os.Stdout, reader)
 
@@ -108,32 +107,20 @@ func runProjectInDocker(ctx context.Context, cmd []string, dockerImage string, p
 				fmt.Sprintf("go mod download && %s", strings.Join(cmd, " ")),
 			}
 		case deps.NodeJS:
-			// For Node.js, we need to check the file extension and use appropriate flags
-			lastArg := cmd[len(cmd)-1]
-			if ext := filepath.Ext(lastArg); ext != "" {
-				if deps.SupportedLanguages[language].RunCommand != nil {
-					// Replace the first part of the command with the appropriate node command
-					cmd = append(deps.SupportedLanguages[language].RunCommand, cmd[1:]...)
-				}
-			}
 			containerConfig.Cmd = []string{
 				"/bin/sh", "-c",
 				fmt.Sprintf("npm install && %s", strings.Join(cmd, " ")),
 			}
 		}
-	} else {
-		if language == deps.NodeJS {
-			// Even without package.json, we need to check file extension for TypeScript support
-			lastArg := cmd[len(cmd)-1]
-			if ext := filepath.Ext(lastArg); ext != "" {
-				if deps.SupportedLanguages[language].RunCommand != nil {
-					// Replace the first part of the command with the appropriate node command
-					cmd = append(deps.SupportedLanguages[language].RunCommand, cmd[1:]...)
-				}
-			}
-		}
-		containerConfig.Cmd = cmd
 	}
+
+	server.SendNotificationToClient(
+		"notifications/progress",
+		map[string]interface{}{
+			"progress":      50,
+			"progressToken": progressToken,
+		},
+	)
 
 	// Mount the project directory to /app in the container
 	hostConfig := &container.HostConfig{
@@ -144,38 +131,27 @@ func runProjectInDocker(ctx context.Context, cmd []string, dockerImage string, p
 
 	resp, err := cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, "")
 	if err != nil {
-		return "", "", fmt.Errorf("failed to create container: %w", err)
+		return "", fmt.Errorf("failed to create container: %w", err)
 	}
+	server.SendNotificationToClient(
+		"notifications/progress",
+		map[string]interface{}{
+			"progress":      75,
+			"progressToken": progressToken,
+		},
+	)
 
 	if err := cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
-		return "", "", fmt.Errorf("failed to start container: %w", err)
+		return "", fmt.Errorf("failed to start container: %w", err)
 	}
 
-	// For background processes, return after container starts successfully
-	if background {
-		return fmt.Sprintf("Container started in background mode. Use 'docker logs %s' to view logs.", resp.ID), resp.ID, nil
-	}
+	server.SendNotificationToClient(
+		"notifications/progress",
+		map[string]interface{}{
+			"progress":      100,
+			"progressToken": progressToken,
+		},
+	)
 
-	// For regular processes, wait for completion and return logs
-	statusCh, errCh := cli.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
-	select {
-	case err := <-errCh:
-		if err != nil {
-			return "", resp.ID, fmt.Errorf("error waiting for container: %w", err)
-		}
-	case <-statusCh:
-	}
-
-	out, err := cli.ContainerLogs(ctx, resp.ID, container.LogsOptions{ShowStdout: true, ShowStderr: true})
-	if err != nil {
-		return "", resp.ID, fmt.Errorf("failed to get container logs: %w", err)
-	}
-
-	var outBuf, errBuf bytes.Buffer
-	_, err = stdcopy.StdCopy(&outBuf, &errBuf, out)
-	if err != nil {
-		return "", resp.ID, fmt.Errorf("failed to copy container output: %w", err)
-	}
-
-	return outBuf.String() + errBuf.String(), resp.ID, nil
+	return resp.ID, nil
 }
