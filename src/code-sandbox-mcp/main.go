@@ -23,25 +23,6 @@ func GenerateEnumTag() string {
 	return strings.Join(tags, ",")
 }
 
-// Tool arguments are just structs, annotated with jsonschema tags
-// More at https://mcpgolang.com/tools#schema-generation
-type Content struct {
-	Title       string  `json:"title" jsonschema:"required,description=The title to submit"`
-	Description *string `json:"description" jsonschema:"description=The description to submit"`
-}
-
-type RunCodeArguments struct {
-	Code     string        `json:"code" jsonschema:"required,description=The code to run"`
-	Language deps.Language `json:"language" jsonschema:"required,description=The programming language to use,enum=python,enum=go,enum=nodejs"`
-}
-
-type RunProjectArguments struct {
-	ProjectDir string        `json:"project_dir" jsonschema:"required,description=The directory containing the project to run"`
-	Language   deps.Language `json:"language" jsonschema:"required,description=The programming language to use,enum=python,enum=go,enum=nodejs"`
-	Entrypoint string        `json:"entrypoint" jsonschema:"required,description=The command to run the project. Examples: 'python main.py', 'node index.js', 'go run .'"`
-	Background bool          `json:"background" jsonschema:"description=Whether to run the project in the background (for servers, APIs, etc.)"`
-}
-
 func main() {
 	// Check for --install flag
 	installFlag := flag.Bool("install", false, "Add this binary to Claude Desktop config")
@@ -69,7 +50,7 @@ func main() {
 		}
 	}
 
-	s := server.NewMCPServer("code-sandbox-mcp", "v1.0.0", server.WithLogging())
+	s := server.NewMCPServer("code-sandbox-mcp", "v1.0.0", server.WithLogging(), server.WithResourceCapabilities(true, true))
 
 	// Register a tool to run code in a docker container
 	runCodeTool := mcp.NewTool("run_code",
