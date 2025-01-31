@@ -60,7 +60,7 @@ func main() {
 	// Register a tool to run code in a docker container
 	runCodeTool := mcp.NewTool("run_code",
 		mcp.WithDescription(
-			"Run code in a docker container with automatic dependency detection and installation. \n"+
+			"Run code in a sandboxed docker container with automatic dependency detection and installation. \n"+
 				"The tool will analyze your code and install required packages automatically. \n"+
 				"The supported languages are: "+GenerateEnumTag()+". \n"+
 				"Returns the execution logs of the container.",
@@ -78,10 +78,10 @@ func main() {
 
 	runProjectTool := mcp.NewTool("run_project",
 		mcp.WithDescription(
-			"Run a code project in a docker container. \n"+
-				"The tool will analyze your code and install required packages automatically. \n"+
+			"Run a project in a sandboxed docker container. \n"+
+				"The tool will install required packages automatically. \n"+
 				"The supported languages are: "+GenerateEnumTag()+". \n"+
-				"Returns the initial logs of the container and resource URI to access the container logs Resource.",
+				"Returns the resource URI of the container logs.",
 		),
 		mcp.WithString("projectDir",
 			mcp.Required(),
