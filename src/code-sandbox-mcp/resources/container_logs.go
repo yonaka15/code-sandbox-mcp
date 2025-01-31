@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"os"
+	"strings"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/pkg/stdcopy"
@@ -21,10 +21,11 @@ func GetContainerLogs(ctx context.Context, request mcp.ReadResourceRequest) ([]i
 	}
 	defer cli.Close()
 
-	containerID := request.Params.URI // Extract ID from the full URI
-
-	logFile, _ := os.Create(containerID + ".log")
-	defer logFile.Close()
+	containerIDPath, found := strings.CutPrefix(request.Params.URI, "containers://") // Extract ID from the full URI
+	if !found {
+		return nil, fmt.Errorf("invalid URI: %s", request.Params.URI)
+	}
+	containerID := strings.TrimSuffix(containerIDPath, "/logs")
 
 	// Set default ContainerLogsOptions
 	logOpts := container.LogsOptions{
