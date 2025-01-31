@@ -23,7 +23,7 @@ func GenerateEnumTag() string {
 	return strings.Join(tags, ",")
 }
 
-func main() {
+func init() {
 	// Check for --install flag
 	installFlag := flag.Bool("install", false, "Add this binary to Claude Desktop config")
 	noUpdateFlag := flag.Bool("no-update", false, "Disable auto-update check")
@@ -34,24 +34,29 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
-		return
+		os.Exit(0)
 	}
 
 	// Check for updates unless disabled
 	if !*noUpdateFlag {
 		if hasUpdate, downloadURL, err := installer.CheckForUpdate(); err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: Failed to check for updates: %v\n", err)
+			os.Exit(1)
 		} else if hasUpdate {
 			fmt.Println("Updating to new version...")
 			if err := installer.PerformUpdate(downloadURL); err != nil {
 				fmt.Fprintf(os.Stderr, "Warning: Failed to update: %v\n", err)
 			}
-			// No need for else block - performUpdate will either exit or return an error
+			fmt.Println("Update complete. Restarting...")
 		}
 	}
+}
 
+func main() {
+	port := flag.String("port", "9520", "Port to listen on")
+	flag.Parse()
 	s := server.NewMCPServer("code-sandbox-mcp", "v1.0.0", server.WithLogging(), server.WithResourceCapabilities(true, true))
-
+	sseServer := server.NewSSEServer(s, fmt.Sprintf("http://localhost:%s", *port))
 	// Register a tool to run code in a docker container
 	runCodeTool := mcp.NewTool("run_code",
 		mcp.WithDescription(
@@ -90,12 +95,13 @@ func main() {
 		mcp.WithString("entrypointCmd",
 			mcp.Required(),
 			mcp.Description("Entrypoint command to run at the root of the project directory."),
+			mcp.Description("Examples: `npm run dev`, `python main.py`, `go run main.go`"),
 		),
 	)
 
 	// Register dynamic resource for container logs
 	// Dynamic resource example - Container Logs by ID
-	template := mcp.NewResourceTemplate(
+	containerLogsTemplate := mcp.NewResourceTemplate(
 		"containers://{id}/logs",
 		"Container Logs",
 		mcp.WithTemplateDescription("Returns all container logs from the specified container. Logs are returned as a single text resource."),
@@ -103,12 +109,12 @@ func main() {
 		mcp.WithTemplateAnnotations([]mcp.Role{mcp.RoleAssistant, mcp.RoleUser}, 0.5),
 	)
 
-	s.AddResourceTemplate(template, resources.GetContainerLogs)
+	s.AddResourceTemplate(containerLogsTemplate, resources.GetContainerLogs)
 	s.AddTool(runCodeTool, tools.RunCodeSandbox)
 	s.AddTool(runProjectTool, tools.RunProjectSandbox)
 
-	if err := server.ServeStdio(s); err != nil {
-		fmt.Printf("Server error: %v\n", err)
+	if err := sseServer.Start(fmt.Sprintf(":%s", *port)); err != nil {
+		fmt.Printf("(sse) Server error: %v\n", err)
 	}
 
 }
