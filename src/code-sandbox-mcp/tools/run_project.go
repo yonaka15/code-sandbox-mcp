@@ -1,7 +1,6 @@
 package tools
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -12,7 +11,6 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
-	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 )
@@ -43,44 +41,7 @@ func RunProjectSandbox(ctx context.Context, request mcp.CallToolRequest) (*mcp.C
 		return mcp.NewToolResultError(fmt.Sprintf("Error: %v", err)), nil
 	}
 
-	// Fetch the logs so far and attach it to the tool result
-	logFile, _ := os.Create(containerId + ".log")
-	defer logFile.Close()
-
-	// Set default ContainerLogsOptions
-	logOpts := container.LogsOptions{
-		ShowStdout: true,
-		ShowStderr: true,
-		Follow:     false, // we just want to grab logs and return
-		Tail:       "all",
-	}
-
-	// Actually fetch the logs
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	if err != nil {
-		return nil, fmt.Errorf("failed to create Docker client: %w", err)
-	}
-	defer cli.Close()
-	reader, err := cli.ContainerLogs(ctx, containerId, logOpts)
-	if err != nil {
-		return nil, fmt.Errorf("error fetching container logs: %w", err)
-	}
-	defer reader.Close()
-
-	// Docker returns a multiplexed stream if the container was started without TTY.
-	// We use stdcopy.StdCopy to split stdout and stderr.
-	var stdoutBuf, stderrBuf bytes.Buffer
-	if _, err := stdcopy.StdCopy(&stdoutBuf, &stderrBuf, reader); err != nil {
-		return nil, fmt.Errorf("error copying container logs: %w", err)
-	}
-
-	// Combine them. You could also return them separately if you prefer.
-	combined := stdoutBuf.String() + stderrBuf.String()
-
-	return mcp.NewToolResultResource(combined, mcp.ResourceContents{
-		URI:      fmt.Sprintf("containers://%s/logs", containerId),
-		MIMEType: "text/plain",
-	}), nil
+	return mcp.NewToolResultText(fmt.Sprintf("Resource URI: containers://%s/logs", containerId)), nil
 }
 
 func runProjectInDocker(ctx context.Context, progressToken mcp.ProgressToken, cmd []string, dockerImage string, projectDir string, language deps.Language) (string, error) {
@@ -118,8 +79,10 @@ func runProjectInDocker(ctx context.Context, progressToken mcp.ProgressToken, cm
 
 	// Create container config with working directory set to /app
 	containerConfig := &container.Config{
-		Image:      dockerImage,
-		WorkingDir: "/app",
+		Image:        dockerImage,
+		WorkingDir:   "/app",
+		AttachStdout: true,
+		AttachStderr: true,
 	}
 
 	// If we have dependencies, modify the command to install them first
@@ -143,9 +106,10 @@ func runProjectInDocker(ctx context.Context, progressToken mcp.ProgressToken, cm
 				fmt.Sprintf("go mod download && %s", strings.Join(cmd, " ")),
 			}
 		case deps.NodeJS:
+			// Ignore the first argument. Generally will be 'node', 'npm'.
 			containerConfig.Cmd = []string{
 				"/bin/sh", "-c",
-				fmt.Sprintf("npm install && %s", strings.Join(cmd, " ")),
+				fmt.Sprintf("bun %s", strings.Join(cmd[1:], " ")),
 			}
 		}
 	}

@@ -35,7 +35,7 @@ var SupportedLanguages = map[Language]LanguageConfig{
 		Image:           "golang:1.21-alpine",
 		DependencyFiles: []string{"go.mod"},
 		InstallCommand:  []string{"go mod init &&", "go", "mod", "download"},
-		RunCommand:      []string{"go", "run", "main.go"},
+		RunCommand:      []string{"go", "run", "."},
 	},
 	NodeJS: {
 		Image:           "oven/bun:debian",
