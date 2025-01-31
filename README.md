@@ -48,7 +48,7 @@ The installer will:
 2. Download the appropriate binary for your system
 3. Create Claude Desktop configuration
 
-### Manual Installation
+### Manual Installation (Not necesary if automated installation is used)
 
 1. Download the latest release for your platform from the [releases page](https://github.com/Automata-Labs-team/code-sandbox-mcp/releases)
 2. Place the binary in a directory in your PATH
@@ -65,9 +65,10 @@ Executes code snippets in an isolated Docker container.
 - `code` (string, required): The code to run
 - `language` (enum, required): Programming language to use
   - Supported values: `python`, `go`, `nodejs`
+  - Note: If your Python code requires external dependencies, it is recommended to use the `run_project` tool instead. Go and Node.js script dependencies are automatically installed.
 
 **Returns:**
-- Text content containing the execution output (stdout + stderr)
+- Container execution output (stdout + stderr)
 
 **Features:**
 - Automatic dependency detection and installation
@@ -86,21 +87,18 @@ Executes a project directory in a containerized environment.
 - `project_dir` (string, required): Directory containing the project to run
 - `language` (enum, required): Programming language to use
   - Supported values: `python`, `go`, `nodejs`
-- `entrypoint` (string, required): Command to run the project
+- `entrypointCmd` (string, required): Command to run the project
   - Examples:
     - Python: `python main.py`
     - Node.js: `node index.js`
-    - Go: `go run .`
-- `background` (boolean, optional): Whether to run in background mode
+    - Go: `go run main.go`
 
 **Returns:**
-- For foreground processes: Text content containing execution output
-- For background processes: Container ID and initial logs
+- The resource URI of the container logs.
 
 **Features:**
 - Automatic dependency detection and installation
 - Volume mounting of project directory
-- Background process support for long-running services
 - Language-specific configuration handling
 - Real-time log streaming
 
