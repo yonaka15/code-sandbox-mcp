@@ -24,7 +24,7 @@ WORKDIR /app
 COPY --from=builder /app/bin/code-sandbox-mcp /usr/local/bin/
 
 # Expose any ports the application needs
-EXPOSE 8080
+EXPOSE 9520
 
 # Run the application
-ENTRYPOINT ["code-sandbox-mcp"]
+ENTRYPOINT ["/bin/bash", "code-sandbox-mcp"]
