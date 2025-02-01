@@ -1,4 +1,5 @@
 # Code Sandbox MCP 🐳
+[![smithery badge](https://smithery.ai/badge/@Automata-Labs-team/code-sandbox-mcp)](https://smithery.ai/server/@Automata-Labs-team/code-sandbox-mcp)
 
 A secure sandbox environment for executing code within Docker containers. This MCP server provides AI applications with a safe and isolated environment for running code while maintaining security through containerization.
 ![Screenshot from 2025-01-26 02-37-42](https://github.com/user-attachments/assets/c3fcf202-24a2-488a-818f-ffab6f881849)
@@ -12,6 +13,14 @@ A secure sandbox environment for executing code within Docker containers. This M
 - **Real-time Output**: Capture and stream container logs in real-time
 
 ## 🚀 Installation
+
+### Installing via Smithery
+
+To install Code Sandbox for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@Automata-Labs-team/code-sandbox-mcp):
+
+```bash
+npx -y @smithery/cli install @Automata-Labs-team/code-sandbox-mcp --client claude
+```
 
 ### Prerequisites
 
