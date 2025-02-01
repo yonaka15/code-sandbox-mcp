@@ -10,4 +10,4 @@ startCommand:
   commandFunction:
     # A function that produces the CLI command to start the MCP on stdio.
     |-
-    (config) => ({command: '~/.local/share/code-sandbox-mcp/code-sandbox-mcp', args: []})
+    (config) => ({command: '/usr/local/bin/code-sandbox-mcp', args: []})
