@@ -16,6 +16,11 @@ import (
 )
 
 func RunProjectSandbox(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	var progressToken mcp.ProgressToken
+	if request.Params.Meta != nil && request.Params.Meta.ProgressToken != nil {
+		progressToken = request.Params.Meta.ProgressToken
+	}
+
 	language, ok := request.Params.Arguments["language"].(string)
 	if !ok {
 		return nil, fmt.Errorf("invalid language")
@@ -36,7 +41,7 @@ func RunProjectSandbox(ctx context.Context, request mcp.CallToolRequest) (*mcp.C
 	}
 
 	config := deps.SupportedLanguages[deps.Language(language)]
-	containerId, err := runProjectInDocker(ctx, request.Params.Meta.ProgressToken, strings.Fields(entrypoint), config.Image, projectDir, deps.Language(language))
+	containerId, err := runProjectInDocker(ctx, progressToken, strings.Fields(entrypoint), config.Image, projectDir, deps.Language(language))
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("Error: %v", err)), nil
 	}
@@ -51,15 +56,19 @@ func runProjectInDocker(ctx context.Context, progressToken mcp.ProgressToken, cm
 		return "", fmt.Errorf("failed to create Docker client: %w", err)
 	}
 	defer cli.Close()
-	if err := server.SendNotificationToClient(
-		"notifications/progress",
-		map[string]interface{}{
-			"progress":      10,
-			"progressToken": progressToken,
-		},
-	); err != nil {
-		return "", fmt.Errorf("failed to send progress notification: %w", err)
+
+	if progressToken != "" {
+		if err := server.SendNotificationToClient(
+			"notifications/progress",
+			map[string]interface{}{
+				"progress":      10,
+				"progressToken": progressToken,
+			},
+		); err != nil {
+			return "", fmt.Errorf("failed to send progress notification: %w", err)
+		}
 	}
+
 	// Pull the Docker image
 	_, err = cli.ImagePull(ctx, dockerImage, image.PullOptions{})
 	if err != nil {
@@ -114,13 +123,15 @@ func runProjectInDocker(ctx context.Context, progressToken mcp.ProgressToken, cm
 		}
 	}
 
-	server.SendNotificationToClient(
-		"notifications/progress",
-		map[string]interface{}{
-			"progress":      50,
-			"progressToken": progressToken,
-		},
-	)
+	if progressToken != "" {
+		server.SendNotificationToClient(
+			"notifications/progress",
+			map[string]interface{}{
+				"progress":      50,
+				"progressToken": progressToken,
+			},
+		)
+	}
 
 	// Mount the project directory to /app in the container
 	hostConfig := &container.HostConfig{
@@ -133,25 +144,30 @@ func runProjectInDocker(ctx context.Context, progressToken mcp.ProgressToken, cm
 	if err != nil {
 		return "", fmt.Errorf("failed to create container: %w", err)
 	}
-	server.SendNotificationToClient(
-		"notifications/progress",
-		map[string]interface{}{
-			"progress":      75,
-			"progressToken": progressToken,
-		},
-	)
+
+	if progressToken != "" {
+		server.SendNotificationToClient(
+			"notifications/progress",
+			map[string]interface{}{
+				"progress":      75,
+				"progressToken": progressToken,
+			},
+		)
+	}
 
 	if err := cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
 		return "", fmt.Errorf("failed to start container: %w", err)
 	}
 
-	server.SendNotificationToClient(
-		"notifications/progress",
-		map[string]interface{}{
-			"progress":      100,
-			"progressToken": progressToken,
-		},
-	)
+	if progressToken != "" {
+		server.SendNotificationToClient(
+			"notifications/progress",
+			map[string]interface{}{
+				"progress":      100,
+				"progressToken": progressToken,
+			},
+		)
+	}
 
 	return resp.ID, nil
 }

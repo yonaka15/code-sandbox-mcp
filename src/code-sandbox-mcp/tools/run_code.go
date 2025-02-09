@@ -22,7 +22,11 @@ import (
 
 func RunCodeSandbox(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	server := server.ServerFromContext(ctx)
-	progressToken := request.Params.Meta.ProgressToken
+	var progressToken mcp.ProgressToken
+	if request.Params.Meta != nil && request.Params.Meta.ProgressToken != nil {
+		progressToken = request.Params.Meta.ProgressToken
+	}
+
 	language, ok := request.Params.Arguments["language"].(string)
 	if !ok {
 		return mcp.NewToolResultError(fmt.Sprintf("Language not supported: %s", request.Params.Arguments["language"])), nil
@@ -33,14 +37,17 @@ func RunCodeSandbox(ctx context.Context, request mcp.CallToolRequest) (*mcp.Call
 	}
 	parsed := languages.Language(language)
 	config := languages.SupportedLanguages[languages.Language(language)]
-	if err := server.SendNotificationToClient(
-		"notifications/progress",
-		map[string]interface{}{
-			"progress":      10,
-			"progressToken": progressToken,
-		},
-	); err != nil {
-		return mcp.NewToolResultError("Could not send progress to client"), nil
+
+	if progressToken != "" {
+		if err := server.SendNotificationToClient(
+			"notifications/progress",
+			map[string]interface{}{
+				"progress":      10,
+				"progressToken": progressToken,
+			},
+		); err != nil {
+			return mcp.NewToolResultError("Could not send progress to client"), nil
+		}
 	}
 
 	cmd := config.RunCommand
@@ -53,25 +60,31 @@ func RunCodeSandbox(ctx context.Context, request mcp.CallToolRequest) (*mcp.Call
 	} else if parsed == languages.Python {
 		// For Python leverage something like https://github.com/tliron/py4go to run pipreqs (https://github.com/bndr/pipreqs)
 		// natively to generate requirements.txt
-
 	}
 
-	server.SendNotificationToClient(
-		"notifications/progress",
-		map[string]interface{}{
-			"progress":      50,
-			"progressToken": progressToken,
-		},
-	)
+	if progressToken != "" {
+		server.SendNotificationToClient(
+			"notifications/progress",
+			map[string]interface{}{
+				"progress":      50,
+				"progressToken": progressToken,
+			},
+		)
+	}
+
 	log.Println("Running Command: ", cmd)
 	logs, err := runInDocker(ctx, progressToken, cmd, config.Image, escapedCode, parsed, nil)
-	server.SendNotificationToClient(
-		"notifications/progress",
-		map[string]interface{}{
-			"progress":      100,
-			"progressToken": progressToken,
-		},
-	)
+
+	if progressToken != "" {
+		server.SendNotificationToClient(
+			"notifications/progress",
+			map[string]interface{}{
+				"progress":      100,
+				"progressToken": progressToken,
+			},
+		)
+	}
+
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("Error: %v", err)), nil
 	}
@@ -189,16 +202,16 @@ loop:
 		select {
 		case <-ticker.C:
 			progress = progress + 5
-			// Send your status update here
-			// For example:
-			if err := server.SendNotificationToClient(
-				"notifications/progress",
-				map[string]interface{}{
-					"progress":      progress,
-					"progressToken": progressToken,
-				},
-			); err != nil {
-				fmt.Printf("failed to send status update: %v", err)
+			if progressToken != "" {
+				if err := server.SendNotificationToClient(
+					"notifications/progress",
+					map[string]interface{}{
+						"progress":      progress,
+						"progressToken": progressToken,
+					},
+				); err != nil {
+					fmt.Printf("failed to send status update: %v", err)
+				}
 			}
 		case <-ctx.Done():
 			return "", ctx.Err()
@@ -210,7 +223,7 @@ loop:
 		}
 	}
 
-	out, err := cli.ContainerLogs(ctx, sandboxContainer.ID, container.LogsOptions{ShowStdout: true, ShowStderr: true, Follow: false, })
+	out, err := cli.ContainerLogs(ctx, sandboxContainer.ID, container.LogsOptions{ShowStdout: true, ShowStderr: true, Follow: false})
 	if err != nil {
 		return "", fmt.Errorf("failed to get container logs: %w", err)
 	}

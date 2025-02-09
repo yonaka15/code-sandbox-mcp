@@ -55,7 +55,7 @@ func init() {
 func main() {
 	// port := flag.String("port", "9520", "Port to listen on")
 	flag.Parse()
-	s := server.NewMCPServer("code-sandbox-mcp", "v1.0.0", server.WithLogging(), server.WithResourceCapabilities(true, true))
+	s := server.NewMCPServer("code-sandbox-mcp", "v1.0.0", server.WithLogging(), server.WithResourceCapabilities(true, true), server.WithPromptCapabilities(true))
 	// sseServer := server.NewSSEServer(s, fmt.Sprintf("http://localhost:%s", *port))
 	// Register a tool to run code in a docker container
 	runCodeTool := mcp.NewTool("run_code",
