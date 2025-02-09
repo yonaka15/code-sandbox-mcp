@@ -32,10 +32,10 @@ var SupportedLanguages = map[Language]LanguageConfig{
 		RunCommand:      []string{"python3", "-c"},
 	},
 	Go: {
-		Image:           "golang:1.21-alpine",
+		Image:           "docker.io/library/golang:1.23.6-bookworm",
 		DependencyFiles: []string{"go.mod"},
-		InstallCommand:  []string{"go mod init &&", "go", "mod", "download"},
-		RunCommand:      []string{"go", "run", "."},
+		InstallCommand:  []string{"go mod init &&", "go", "mod", "tidy"},
+		RunCommand:      []string{"go", "run", "main.go"},
 	},
 	NodeJS: {
 		Image:           "oven/bun:debian",

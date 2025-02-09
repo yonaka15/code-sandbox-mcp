@@ -53,10 +53,10 @@ func init() {
 }
 
 func main() {
-	port := flag.String("port", "9520", "Port to listen on")
+	// port := flag.String("port", "9520", "Port to listen on")
 	flag.Parse()
 	s := server.NewMCPServer("code-sandbox-mcp", "v1.0.0", server.WithLogging(), server.WithResourceCapabilities(true, true))
-	sseServer := server.NewSSEServer(s, fmt.Sprintf("http://localhost:%s", *port))
+	// sseServer := server.NewSSEServer(s, fmt.Sprintf("http://localhost:%s", *port))
 	// Register a tool to run code in a docker container
 	runCodeTool := mcp.NewTool("run_code",
 		mcp.WithDescription(
@@ -113,8 +113,8 @@ func main() {
 	s.AddTool(runCodeTool, tools.RunCodeSandbox)
 	s.AddTool(runProjectTool, tools.RunProjectSandbox)
 
-	if err := sseServer.Start(fmt.Sprintf(":%s", *port)); err != nil {
-		fmt.Printf("(sse) Server error: %v\n", err)
+	if err := server.ServeStdio(s); err != nil {
+		fmt.Printf("(stdio) Server error: %v", err)
 	}
 
 }

@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -48,7 +49,7 @@ func RunCodeSandbox(ctx context.Context, request mcp.CallToolRequest) (*mcp.Call
 	escapedCode := strings.ToValidUTF8(code, "")
 	if parsed == languages.Go {
 		// For Go, we need to write the code to a file
-		cmd = []string{"/bin/sh", "-c", "go mod init sandbox && go mod tidy && go run main.go"}
+		cmd = []string{"go", "run", "main.go"}
 	} else if parsed == languages.Python {
 		// For Python leverage something like https://github.com/tliron/py4go to run pipreqs (https://github.com/bndr/pipreqs)
 		// natively to generate requirements.txt
@@ -62,7 +63,7 @@ func RunCodeSandbox(ctx context.Context, request mcp.CallToolRequest) (*mcp.Call
 			"progressToken": progressToken,
 		},
 	)
-
+	log.Println("Running Command: ", cmd)
 	logs, err := runInDocker(ctx, progressToken, cmd, config.Image, escapedCode, parsed, nil)
 	server.SendNotificationToClient(
 		"notifications/progress",
@@ -94,7 +95,6 @@ func runInDocker(ctx context.Context, progressToken mcp.ProgressToken, cmd []str
 		return "", fmt.Errorf("failed to pull Docker image %s: %w", dockerImage, err)
 	}
 	io.Copy(os.Stdout, reader)
-
 	// Create container config
 	config := &container.Config{
 		Image: dockerImage,

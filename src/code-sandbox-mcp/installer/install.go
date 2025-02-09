@@ -68,10 +68,9 @@ func InstallConfig() error {
 			Env:     map[string]string{},
 		}
 	} else {
-		command = "/usr/bin/env"
 		config.MCPServers["code-sandbox-mcp"] = MCPServer{
-			Command: command,
-			Args:    []string{execPath},
+			Command: execPath,
+			Args:    []string{},
 			Env:     map[string]string{},
 		}
 	}
