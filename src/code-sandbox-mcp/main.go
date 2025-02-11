@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 
@@ -53,10 +54,11 @@ func init() {
 }
 
 func main() {
-	// port := flag.String("port", "9520", "Port to listen on")
+	port := flag.String("port", "9520", "Port to listen on")
+	transport := flag.String("transport", "stdio", "Transport to use (stdio, sse)")
 	flag.Parse()
 	s := server.NewMCPServer("code-sandbox-mcp", "v1.0.0", server.WithLogging(), server.WithResourceCapabilities(true, true), server.WithPromptCapabilities(true))
-	// sseServer := server.NewSSEServer(s, fmt.Sprintf("http://localhost:%s", *port))
+
 	// Register a tool to run code in a docker container
 	runCodeTool := mcp.NewTool("run_code",
 		mcp.WithDescription(
@@ -112,9 +114,17 @@ func main() {
 	s.AddResourceTemplate(containerLogsTemplate, resources.GetContainerLogs)
 	s.AddTool(runCodeTool, tools.RunCodeSandbox)
 	s.AddTool(runProjectTool, tools.RunProjectSandbox)
-
-	if err := server.ServeStdio(s); err != nil {
-		fmt.Printf("(stdio) Server error: %v", err)
+	switch *transport {
+	case "stdio":
+		if err := server.ServeStdio(s); err != nil {
+			log.Fatalf("Failed to start stdio server: %v", err)
+		}
+	case "sse":
+		sseServer := server.NewSSEServer(s, fmt.Sprintf("http://localhost:%s", *port))
+		if err := sseServer.Start(fmt.Sprintf(":%s", *port)); err != nil {
+			log.Fatalf("Failed to start SSE server: %v", err)
+		}
+	default:
+		log.Fatalf("Invalid transport: %s", *transport)
 	}
-
 }
