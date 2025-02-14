@@ -14,14 +14,6 @@ A secure sandbox environment for executing code within Docker containers. This M
 
 ## 🚀 Installation
 
-### Installing via Smithery
-
-To install Code Sandbox for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@Automata-Labs-team/code-sandbox-mcp):
-
-```bash
-npx -y @smithery/cli install @Automata-Labs-team/code-sandbox-mcp --client claude
-```
-
 ### Prerequisites
 
 - Docker installed and running
@@ -31,7 +23,7 @@ npx -y @smithery/cli install @Automata-Labs-team/code-sandbox-mcp --client claud
 
 ### Quick Install
 
-#### Unix-like Systems (Linux, macOS)
+#### Linux, MacOS
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Automata-Labs-team/code-sandbox-mcp/main/install.sh | bash
 ```
