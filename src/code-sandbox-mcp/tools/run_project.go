@@ -10,9 +10,9 @@ import (
 	deps "github.com/Automata-Labs-team/code-sandbox-mcp/languages"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/client"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+	"github.com/moby/moby/client"
 )
 
 func RunProjectSandbox(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -88,10 +88,11 @@ func runProjectInDocker(ctx context.Context, progressToken mcp.ProgressToken, cm
 
 	// Create container config with working directory set to /app
 	containerConfig := &container.Config{
-		Image:        dockerImage,
-		WorkingDir:   "/app",
-		AttachStdout: true,
-		AttachStderr: true,
+		Image:      dockerImage,
+		WorkingDir: "/app",
+		// AttachStdout: true,
+		// AttachStderr: true,
+		Tty: false,
 	}
 
 	// If we have dependencies, modify the command to install them first
@@ -100,26 +101,19 @@ func runProjectInDocker(ctx context.Context, progressToken mcp.ProgressToken, cm
 		case deps.Python:
 			if depFile == "requirements.txt" {
 				containerConfig.Cmd = []string{
-					"/bin/sh", "-c",
 					fmt.Sprintf("pip install -r %s && %s", depFile, strings.Join(cmd, " ")),
 				}
 			} else if depFile == "pyproject.toml" || depFile == "setup.py" {
 				containerConfig.Cmd = []string{
-					"/bin/sh", "-c",
 					fmt.Sprintf("pip install . && %s", strings.Join(cmd, " ")),
 				}
 			}
 		case deps.Go:
-			containerConfig.Cmd = []string{
-				"/bin/sh", "-c",
-				fmt.Sprintf("go mod download && %s", strings.Join(cmd, " ")),
-			}
+			// Combine the install command with the run command
+			containerConfig.Cmd = append(deps.SupportedLanguages[language].InstallCommand, cmd...)
 		case deps.NodeJS:
-			// Ignore the first argument. Generally will be 'node', 'npm'.
-			containerConfig.Cmd = []string{
-				"/bin/sh", "-c",
-				fmt.Sprintf("bun %s", strings.Join(cmd[1:], " ")),
-			}
+			// Bun automatically installs dependencies when running the project, so just combine "bun" with the command after index 1
+			containerConfig.Cmd = append([]string{"bun"}, cmd[1:]...)
 		}
 	}
 

@@ -18,6 +18,7 @@ type LanguageConfig struct {
 	DependencyFiles []string // Files that indicate dependencies (e.g., go.mod, requirements.txt)
 	InstallCommand  []string // Command to install dependencies (e.g., pip install -r requirements.txt)
 	RunCommand      []string // Run command
+	FileExtension   string   // File extension for the language
 }
 
 // AllLanguages contains all supported languages in a specific order
@@ -26,22 +27,25 @@ var AllLanguages = LanguageList{Python, Go, NodeJS}
 // SupportedLanguages maps Language to their configurations
 var SupportedLanguages = map[Language]LanguageConfig{
 	Python: {
-		Image:           "python:3.12-slim-bookworm",
+		Image:           "ghcr.io/astral-sh/uv:debian-slim",
 		DependencyFiles: []string{"requirements.txt", "pyproject.toml", "setup.py"},
 		InstallCommand:  []string{"pip", "install", "-r", "requirements.txt"},
-		RunCommand:      []string{"python3", "-c"},
+		RunCommand:      []string{"uvx", "run", "main.py"},
+		FileExtension:   "py",
 	},
 	Go: {
 		Image:           "docker.io/library/golang:1.23.6-bookworm",
 		DependencyFiles: []string{"go.mod"},
-		InstallCommand:  []string{"go mod init &&", "go", "mod", "tidy"},
+		InstallCommand:  []string{"go", "mod", "tidy"},
 		RunCommand:      []string{"go", "run", "main.go"},
+		FileExtension:   "go",
 	},
 	NodeJS: {
 		Image:           "oven/bun:debian",
 		DependencyFiles: []string{"package.json"},
 		InstallCommand:  []string{"npm", "install"},
 		RunCommand:      []string{"bun", "run", "main.ts"},
+		FileExtension:   "ts",
 	},
 }
 

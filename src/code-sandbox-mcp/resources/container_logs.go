@@ -1,16 +1,15 @@
 package resources
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"strings"
 
 	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/pkg/stdcopy"
+	"github.com/moby/moby/pkg/stdcopy"
 
-	"github.com/docker/docker/client"
 	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/moby/moby/client"
 )
 
 func GetContainerLogs(ctx context.Context, request mcp.ReadResourceRequest) ([]interface{}, error) {
@@ -31,8 +30,6 @@ func GetContainerLogs(ctx context.Context, request mcp.ReadResourceRequest) ([]i
 	logOpts := container.LogsOptions{
 		ShowStdout: true,
 		ShowStderr: true,
-		Follow:     false, // we just want to grab logs and return
-		Tail:       "all",
 	}
 
 	// Actually fetch the logs
@@ -42,15 +39,13 @@ func GetContainerLogs(ctx context.Context, request mcp.ReadResourceRequest) ([]i
 	}
 	defer reader.Close()
 
-	// Docker returns a multiplexed stream if the container was started without TTY.
-	// We use stdcopy.StdCopy to split stdout and stderr.
-	var stdoutBuf, stderrBuf bytes.Buffer
-	if _, err := stdcopy.StdCopy(&stdoutBuf, &stderrBuf, reader); err != nil {
+	var b strings.Builder
+	if _, err := stdcopy.StdCopy(&b, &b, reader); err != nil {
 		return nil, fmt.Errorf("error copying container logs: %w", err)
 	}
 
 	// Combine them. You could also return them separately if you prefer.
-	combined := stdoutBuf.String() + stderrBuf.String()
+	combined := b.String()
 
 	return []interface{}{
 		mcp.TextResourceContents{

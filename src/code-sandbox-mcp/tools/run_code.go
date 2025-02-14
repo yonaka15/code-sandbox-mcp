@@ -1,11 +1,9 @@
 package tools
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,13 +12,18 @@ import (
 	"github.com/Automata-Labs-team/code-sandbox-mcp/languages"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/client"
-	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+	"github.com/moby/moby/client"
+	"github.com/moby/moby/pkg/stdcopy"
 )
 
 func RunCodeSandbox(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	arguments := request.Params.Arguments
+	steps, _ := arguments["steps"].(float64)
+	if steps == 0 {
+		steps = 100
+	}
 	server := server.ServerFromContext(ctx)
 	var progressToken mcp.ProgressToken
 	if request.Params.Meta != nil && request.Params.Meta.ProgressToken != nil {
@@ -42,57 +45,83 @@ func RunCodeSandbox(ctx context.Context, request mcp.CallToolRequest) (*mcp.Call
 		if err := server.SendNotificationToClient(
 			"notifications/progress",
 			map[string]interface{}{
-				"progress":      10,
+				"progress":      int(10),
+				"total":         int(steps),
 				"progressToken": progressToken,
 			},
 		); err != nil {
-			return mcp.NewToolResultError("Could not send progress to client"), nil
+			return &mcp.CallToolResult{
+				Content: []interface{}{
+					mcp.NewTextContent("Could not send progress to client"),
+				},
+				IsError: false,
+			}, nil
 		}
 	}
 
 	cmd := config.RunCommand
-
-	// Escape the Python code for shell execution
 	escapedCode := strings.ToValidUTF8(code, "")
-	if parsed == languages.Go {
-		// For Go, we need to write the code to a file
-		cmd = []string{"go", "run", "main.go"}
-	} else if parsed == languages.Python {
-		// For Python leverage something like https://github.com/tliron/py4go to run pipreqs (https://github.com/bndr/pipreqs)
-		// natively to generate requirements.txt
-	}
 
-	if progressToken != "" {
-		server.SendNotificationToClient(
-			"notifications/progress",
-			map[string]interface{}{
-				"progress":      50,
-				"progressToken": progressToken,
-			},
-		)
-	}
+	// Create a channel to receive the result from runInDocker
+	resultCh := make(chan struct {
+		logs string
+		err  error
+	}, 1)
 
-	log.Println("Running Command: ", cmd)
-	logs, err := runInDocker(ctx, progressToken, cmd, config.Image, escapedCode, parsed, nil)
+	// Run the Docker container in a goroutine
+	go func() {
+		logs, err := runInDocker(ctx, cmd, config.Image, escapedCode, parsed)
+		resultCh <- struct {
+			logs string
+			err  error
+		}{logs, err}
+	}()
 
-	if progressToken != "" {
-		server.SendNotificationToClient(
-			"notifications/progress",
-			map[string]interface{}{
-				"progress":      100,
-				"progressToken": progressToken,
-			},
-		)
+	progress := 20
+	for {
+		select {
+		case result := <-resultCh:
+			if progressToken != "" {
+				// Send final progress update
+				_ = server.SendNotificationToClient(
+					"notifications/progress",
+					map[string]interface{}{
+						"progress":      100,
+						"total":         int(steps),
+						"progressToken": progressToken,
+					},
+				)
+			}
+			if result.err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("Error: %v", result.err)), nil
+			}
+			return mcp.NewToolResultText(fmt.Sprintf("Logs: %s", result.logs)), nil
+		default:
+			time.Sleep(2 * time.Second)
+			if progressToken != "" {
+				if progress >= 90 && progress < 100 {
+					progress = progress + 1
+				} else {
+					progress = progress + 5
+				}
+				if err := server.SendNotificationToClient(
+					"notifications/progress",
+					map[string]interface{}{
+						"progress":      progress,
+						"total":         int(steps),
+						"progressToken": progressToken,
+					},
+				); err != nil {
+					server.SendNotificationToClient("notifications/error", map[string]interface{}{
+						"message": fmt.Sprintf("Failed to send progress: %v", err),
+					})
+				}
+			}
+		}
 	}
-
-	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Error: %v", err)), nil
-	}
-	return mcp.NewToolResultText(logs), nil
 }
 
-func runInDocker(ctx context.Context, progressToken mcp.ProgressToken, cmd []string, dockerImage string, code string, language languages.Language, hostConfig *container.HostConfig) (string, error) {
-	server := server.ServerFromContext(ctx)
+func runInDocker(ctx context.Context, cmd []string, dockerImage string, code string, language languages.Language) (string, error) {
 	cli, err := client.NewClientWithOpts(
 		client.FromEnv,
 		client.WithAPIVersionNegotiation(),
@@ -107,66 +136,43 @@ func runInDocker(ctx context.Context, progressToken mcp.ProgressToken, cmd []str
 	if err != nil {
 		return "", fmt.Errorf("failed to pull Docker image %s: %w", dockerImage, err)
 	}
-	io.Copy(os.Stdout, reader)
+	defer reader.Close()
+
+	_, err = io.Copy(io.Discard, reader)
+	if err != nil {
+		return "", fmt.Errorf("failed to copy Docker image pull output: %w", err)
+	}
+
 	// Create container config
 	config := &container.Config{
 		Image: dockerImage,
 		Cmd:   cmd,
+		Tty:   false,
 	}
 
-	// For Go, we need to write the code to a file and set up a module
-	if language == languages.Go {
-		// Create a temporary directory for the Go file
-		tmpDir, err := os.MkdirTemp("", "docker-sandbox-*")
-		if err != nil {
-			return "", fmt.Errorf("failed to create temporary directory: %w", err)
-		}
-		// Clean up the temporary directory after we're done
-		defer os.RemoveAll(tmpDir)
-
-		// Write the code to a file in the temporary directory
-		tmpFile := filepath.Join(tmpDir, "main.go")
-		err = os.WriteFile(tmpFile, []byte(code), 0644)
-		if err != nil {
-			return "", fmt.Errorf("failed to write code to temporary file: %w", err)
-		}
-
-		// Mount the temporary directory to /app and set it as working directory
-		hostConfig = &container.HostConfig{
-			Binds: []string{
-				fmt.Sprintf("%s:/app", tmpDir),
-			},
-		}
-
-		// Update container config to work in the mounted directory
-		config.WorkingDir = "/app"
+	// Create a temporary directory for the Go file
+	tmpDir, err := os.MkdirTemp("", "docker-sandbox-*")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temporary directory: %w", err)
 	}
-	if language == languages.NodeJS {
-		// Create a temporary directory for the Go file
-		tmpDir, err := os.MkdirTemp("", "docker-sandbox-*")
-		if err != nil {
-			return "", fmt.Errorf("failed to create temporary directory: %w", err)
-		}
-		// Clean up the temporary directory after we're done
-		defer os.RemoveAll(tmpDir)
+	defer os.RemoveAll(tmpDir)
 
-		// Write the code to a file in the temporary directory
-		tmpFile := filepath.Join(tmpDir, "main.ts")
-		err = os.WriteFile(tmpFile, []byte(code), 0644)
-		if err != nil {
-			return "", fmt.Errorf("failed to write code to temporary file: %w", err)
-		}
-
-		// Mount the temporary directory to /app and set it as working directory
-		hostConfig = &container.HostConfig{
-			Binds: []string{
-				fmt.Sprintf("%s:/app", tmpDir),
-			},
-		}
-
-		// Update container config to work in the mounted directory
-		config.WorkingDir = "/app"
+	// Write the code to a file in the temporary directory
+	tmpFile := filepath.Join(tmpDir, "main."+languages.SupportedLanguages[language].FileExtension)
+	err = os.WriteFile(tmpFile, []byte(code), 0644)
+	if err != nil {
+		return "", fmt.Errorf("failed to write code to temporary file: %w", err)
 	}
+
+	// Mount the temporary directory to /app and set it as working directory
+	hostConfig := &container.HostConfig{
+		Binds: []string{
+			fmt.Sprintf("%s:/app", tmpDir),
+		},
+	}
+
+	// Update container config to work in the mounted directory
+	config.WorkingDir = "/app"
 
 	sandboxContainer, err := cli.ContainerCreate(ctx, config, hostConfig, nil, nil, "")
 	if err != nil {
@@ -177,62 +183,28 @@ func runInDocker(ctx context.Context, progressToken mcp.ProgressToken, cmd []str
 		return "", fmt.Errorf("failed to start container: %w", err)
 	}
 
-	// Create a ticker for status updates (e.g., every 5 seconds)
-	ticker := time.NewTicker(1 * time.Second)
-	defer ticker.Stop()
+	// Wait for container to finish
+	statusCh, errCh := cli.ContainerWait(ctx, sandboxContainer.ID, container.WaitConditionNotRunning)
 
-	// Start ContainerWait in a separate goroutine
-	waitDone := make(chan struct{})
-	var waitErr error
-	go func() {
-		statusCh, errCh := cli.ContainerWait(ctx, sandboxContainer.ID, container.WaitConditionNotRunning)
-		select {
-		case err := <-errCh:
-			if err != nil {
-				waitErr = fmt.Errorf("error waiting for container: %w", err)
-			}
-		case <-statusCh:
+	select {
+	case err := <-errCh:
+		if err != nil {
+			panic(err)
 		}
-		close(waitDone)
-	}()
-	progress := 50
-	// Main select loop to handle both container wait and status updates
-loop:
-	for {
-		select {
-		case <-ticker.C:
-			progress = progress + 5
-			if progressToken != "" {
-				if err := server.SendNotificationToClient(
-					"notifications/progress",
-					map[string]interface{}{
-						"progress":      progress,
-						"progressToken": progressToken,
-					},
-				); err != nil {
-					fmt.Printf("failed to send status update: %v", err)
-				}
-			}
-		case <-ctx.Done():
-			return "", ctx.Err()
-		case <-waitDone:
-			if waitErr != nil {
-				return "", waitErr
-			}
-			break loop
-		}
+	case <-statusCh:
 	}
 
-	out, err := cli.ContainerLogs(ctx, sandboxContainer.ID, container.LogsOptions{ShowStdout: true, ShowStderr: true, Follow: false})
+	out, err := cli.ContainerLogs(ctx, sandboxContainer.ID, container.LogsOptions{ShowStdout: true, ShowStderr: true})
 	if err != nil {
 		return "", fmt.Errorf("failed to get container logs: %w", err)
 	}
 	defer out.Close()
-	var outBuf, errBuf bytes.Buffer
-	_, err = stdcopy.StdCopy(&outBuf, &errBuf, out)
+
+	var b strings.Builder
+	_, err = stdcopy.StdCopy(&b, &b, out)
 	if err != nil {
 		return "", fmt.Errorf("failed to copy container output: %w", err)
 	}
 
-	return outBuf.String() + errBuf.String(), nil
+	return b.String(), nil
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -57,8 +58,8 @@ func main() {
 	port := flag.String("port", "9520", "Port to listen on")
 	transport := flag.String("transport", "stdio", "Transport to use (stdio, sse)")
 	flag.Parse()
-	s := server.NewMCPServer("code-sandbox-mcp", "v1.0.0", server.WithLogging(), server.WithResourceCapabilities(true, true), server.WithPromptCapabilities(true))
-
+	s := server.NewMCPServer("code-sandbox-mcp", "v1.0.0", server.WithLogging(), server.WithResourceCapabilities(true, true), server.WithPromptCapabilities(false))
+	s.AddNotificationHandler("notifications/error", handleNotification)
 	// Register a tool to run code in a docker container
 	runCodeTool := mcp.NewTool("run_code",
 		mcp.WithDescription(
@@ -114,17 +115,31 @@ func main() {
 	s.AddResourceTemplate(containerLogsTemplate, resources.GetContainerLogs)
 	s.AddTool(runCodeTool, tools.RunCodeSandbox)
 	s.AddTool(runProjectTool, tools.RunProjectSandbox)
+
 	switch *transport {
 	case "stdio":
 		if err := server.ServeStdio(s); err != nil {
-			log.Fatalf("Failed to start stdio server: %v", err)
+			s.SendNotificationToClient("notifications/error", map[string]interface{}{
+				"message": fmt.Sprintf("Failed to start stdio server: %v", err),
+			})
 		}
 	case "sse":
 		sseServer := server.NewSSEServer(s, fmt.Sprintf("http://localhost:%s", *port))
 		if err := sseServer.Start(fmt.Sprintf(":%s", *port)); err != nil {
-			log.Fatalf("Failed to start SSE server: %v", err)
+			s.SendNotificationToClient("notifications/error", map[string]interface{}{
+				"message": fmt.Sprintf("Failed to start SSE server: %v", err),
+			})
 		}
 	default:
-		log.Fatalf("Invalid transport: %s", *transport)
+		s.SendNotificationToClient("notifications/error", map[string]interface{}{
+			"message": fmt.Sprintf("Invalid transport: %s", *transport),
+		})
 	}
+}
+
+func handleNotification(
+	ctx context.Context,
+	notification mcp.JSONRPCNotification,
+) {
+	log.Printf("Received notification from client: %s", notification.Method)
 }
