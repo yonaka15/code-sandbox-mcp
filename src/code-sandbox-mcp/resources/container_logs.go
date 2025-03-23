@@ -6,13 +6,13 @@ import (
 	"strings"
 
 	"github.com/docker/docker/api/types/container"
-	"github.com/moby/moby/pkg/stdcopy"
+	"github.com/docker/docker/pkg/stdcopy"
 
+	"github.com/docker/docker/client"
 	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/moby/moby/client"
 )
 
-func GetContainerLogs(ctx context.Context, request mcp.ReadResourceRequest) ([]interface{}, error) {
+func GetContainerLogs(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
 
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
@@ -47,13 +47,11 @@ func GetContainerLogs(ctx context.Context, request mcp.ReadResourceRequest) ([]i
 	// Combine them. You could also return them separately if you prefer.
 	combined := b.String()
 
-	return []interface{}{
+	return []mcp.ResourceContents{
 		mcp.TextResourceContents{
-			ResourceContents: mcp.ResourceContents{
-				URI:      fmt.Sprintf("containers://%s/logs", containerID),
-				MIMEType: "text/plain",
-			},
-			Text: combined,
+			URI:      fmt.Sprintf("containers://%s/logs", containerID),
+			MIMEType: "text/plain",
+			Text:     combined,
 		},
 	}, nil
 }

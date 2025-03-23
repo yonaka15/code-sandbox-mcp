@@ -6,24 +6,13 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strings"
 
 	"github.com/Automata-Labs-team/code-sandbox-mcp/installer"
-	deps "github.com/Automata-Labs-team/code-sandbox-mcp/languages"
 	"github.com/Automata-Labs-team/code-sandbox-mcp/resources"
 	"github.com/Automata-Labs-team/code-sandbox-mcp/tools"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 )
-
-// GenerateEnumTag generates the jsonschema enum tag for all supported languages
-func GenerateEnumTag() string {
-	var tags []string
-	for _, lang := range deps.AllLanguages {
-		tags = append(tags, fmt.Sprintf("enum=%s", lang))
-	}
-	return strings.Join(tags, ",")
-}
 
 func init() {
 	// Check for --install flag
@@ -60,45 +49,96 @@ func main() {
 	flag.Parse()
 	s := server.NewMCPServer("code-sandbox-mcp", "v1.0.0", server.WithLogging(), server.WithResourceCapabilities(true, true), server.WithPromptCapabilities(false))
 	s.AddNotificationHandler("notifications/error", handleNotification)
-	// Register a tool to run code in a docker container
-	runCodeTool := mcp.NewTool("run_code",
+	// Register tools
+	// Initialize a new compute environment for code execution
+	initializeTool := mcp.NewTool("sandbox_initialize",
 		mcp.WithDescription(
-			"Run code in a sandboxed docker container with automatic dependency detection and installation. \n"+
-				"The tool will analyze your code and install required packages automatically. \n"+
-				"The supported languages are: "+GenerateEnumTag()+". \n"+
-				"Returns the execution logs of the container.",
+			"Initialize a new compute environment for code execution. \n"+
+				"Creates a container based on the specified Docker image or defaults to a slim debian image with Python. \n"+
+				"Returns a container_id that can be used with other tools to interact with this environment.",
 		),
-		mcp.WithString("code",
-			mcp.Required(),
-			mcp.Description("The code to run"),
-		),
-		mcp.WithString("language",
-			mcp.Required(),
-			mcp.Description("The programming language to use"),
-			mcp.Enum(deps.AllLanguages.ToArray()...),
+		mcp.WithString("image",
+			mcp.Description("Docker image to use as the base environment (e.g., 'python:3.12-slim-bookworm')"),
+			mcp.DefaultString("python:3.12-slim-bookworm"),
 		),
 	)
 
-	runProjectTool := mcp.NewTool("run_project",
+	// Copy a directory to the sandboxed filesystem
+	copyProjectTool := mcp.NewTool("copy_project",
 		mcp.WithDescription(
-			"Run a project in a sandboxed docker container. \n"+
-				"The tool will install required packages automatically. \n"+
-				"The supported languages are: "+GenerateEnumTag()+". \n"+
-				"Returns the resource URI of the container logs.",
+			"Copy a directory to the sandboxed filesystem. \n"+
+				"Transfers a local directory and its contents to the specified container.",
 		),
-		mcp.WithString("projectDir",
+		mcp.WithString("container_id",
 			mcp.Required(),
-			mcp.Description("Location of the project to run"),
+			mcp.Description("ID of the container returned from the initialize call"),
 		),
-		mcp.WithString("language",
+		mcp.WithString("local_src_dir",
 			mcp.Required(),
-			mcp.Description("The programming language to use"),
-			mcp.Enum(deps.AllLanguages.ToArray()...),
+			mcp.Description("Path to a directory in the local file system"),
 		),
-		mcp.WithString("entrypointCmd",
+		mcp.WithString("dest_dir",
+			mcp.Description("Path to save the src directory in the sandbox environment, relative to the container working dir"),
+		),
+	)
+
+	// Write a file to the sandboxed filesystem
+	writeFileTool := mcp.NewTool("write_file",
+		mcp.WithDescription(
+			"Write a file to the sandboxed filesystem. \n"+
+				"Creates a file with the specified content in the container.",
+		),
+		mcp.WithString("container_id",
 			mcp.Required(),
-			mcp.Description("Entrypoint command to run at the root of the project directory."),
-			mcp.Description("Examples: `npm run dev`, `python main.py`, `go run main.go`"),
+			mcp.Description("ID of the container returned from the initialize call"),
+		),
+		mcp.WithString("file_name",
+			mcp.Required(),
+			mcp.Description("Name of the file to create"),
+		),
+		mcp.WithString("file_contents",
+			mcp.Required(),
+			mcp.Description("Contents to write to the file"),
+		),
+		mcp.WithString("dest_dir",
+			mcp.Description("Directory to create the file in, relative to the container working dir"),
+			mcp.Description("Default: ${WORKDIR}"),
+		),
+	)
+
+	// Execute commands in the sandboxed environment
+	execTool := mcp.NewTool("sandbox_exec",
+		mcp.WithDescription(
+			"Execute commands in the sandboxed environment. \n"+
+				"Runs one or more shell commands in the specified container and returns the output.",
+		),
+		mcp.WithString("container_id",
+			mcp.Required(),
+			mcp.Description("ID of the container returned from the initialize call"),
+		),
+		mcp.WithArray("commands",
+			mcp.Required(),
+			mcp.Description("List of command(s) to run in the sandboxed environment"),
+			mcp.Description("Example: [\"apt-get update\", \"pip install numpy\", \"python script.py\"]"),
+		),
+	)
+
+	// Copy a single file to the sandboxed filesystem
+	copyFileTool := mcp.NewTool("copy_file",
+		mcp.WithDescription(
+			"Copy a single file to the sandboxed filesystem. \n"+
+				"Transfers a local file to the specified container.",
+		),
+		mcp.WithString("container_id",
+			mcp.Required(),
+			mcp.Description("ID of the container returned from the initialize call"),
+		),
+		mcp.WithString("local_src_file",
+			mcp.Required(),
+			mcp.Description("Path to a file in the local file system"),
+		),
+		mcp.WithString("dest_path",
+			mcp.Description("Path to save the file in the sandbox environment, relative to the container working dir"),
 		),
 	)
 
@@ -113,25 +153,27 @@ func main() {
 	)
 
 	s.AddResourceTemplate(containerLogsTemplate, resources.GetContainerLogs)
-	s.AddTool(runCodeTool, tools.RunCodeSandbox)
-	s.AddTool(runProjectTool, tools.RunProjectSandbox)
-
+	s.AddTool(initializeTool, tools.InitializeEnvironment)
+	s.AddTool(copyProjectTool, tools.CopyProject)
+	s.AddTool(writeFileTool, tools.WriteFile)
+	s.AddTool(execTool, tools.Exec)
+	s.AddTool(copyFileTool, tools.CopyFile)
 	switch *transport {
 	case "stdio":
 		if err := server.ServeStdio(s); err != nil {
-			s.SendNotificationToClient("notifications/error", map[string]interface{}{
+			s.SendNotificationToClient(context.Background(), "notifications/error", map[string]interface{}{
 				"message": fmt.Sprintf("Failed to start stdio server: %v", err),
 			})
 		}
 	case "sse":
-		sseServer := server.NewSSEServer(s, fmt.Sprintf("http://localhost:%s", *port))
+		sseServer := server.NewSSEServer(s)
 		if err := sseServer.Start(fmt.Sprintf(":%s", *port)); err != nil {
-			s.SendNotificationToClient("notifications/error", map[string]interface{}{
+			s.SendNotificationToClient(context.Background(), "notifications/error", map[string]interface{}{
 				"message": fmt.Sprintf("Failed to start SSE server: %v", err),
 			})
 		}
 	default:
-		s.SendNotificationToClient("notifications/error", map[string]interface{}{
+		s.SendNotificationToClient(context.Background(), "notifications/error", map[string]interface{}{
 			"message": fmt.Sprintf("Invalid transport: %s", *transport),
 		})
 	}

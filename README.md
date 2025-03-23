@@ -2,15 +2,16 @@
 [![smithery badge](https://smithery.ai/badge/@Automata-Labs-team/code-sandbox-mcp)](https://smithery.ai/server/@Automata-Labs-team/code-sandbox-mcp)
 
 A secure sandbox environment for executing code within Docker containers. This MCP server provides AI applications with a safe and isolated environment for running code while maintaining security through containerization.
-![Screenshot from 2025-01-26 02-37-42](https://github.com/user-attachments/assets/c3fcf202-24a2-488a-818f-ffab6f881849)
+
 ## 🌟 Features
 
-- **Multi-Language Support**: Run Python, Go, and Node.js code in isolated Docker containers
-- **TypeScript Support**: Built-in support for TypeScript and JSX/TSX files
-- **Dependency Management**: Automatic handling of project dependencies (pip, go mod, npm)
-- **Flexible Execution**: Custom entrypoints for both single-file code and full projects
-- **Background Mode**: Run long-running services in the background
-- **Real-time Output**: Capture and stream container logs in real-time
+- **Flexible Container Management**: Create and manage isolated Docker containers for code execution
+- **Custom Environment Support**: Use any Docker image as your execution environment
+- **File Operations**: Easy file and directory transfer between host and containers
+- **Command Execution**: Run any shell commands within the containerized environment
+- **Real-time Logging**: Stream container logs and command output in real-time
+- **Auto-Updates**: Built-in update checking and automatic binary updates
+- **Multi-Platform**: Supports Linux, macOS, and Windows
 
 ## 🚀 Installation
 
@@ -28,16 +29,6 @@ A secure sandbox environment for executing code within Docker containers. This M
 curl -fsSL https://raw.githubusercontent.com/Automata-Labs-team/code-sandbox-mcp/main/install.sh | bash
 ```
 
-Example output:
-```
-Downloading latest release...
-Installing to /home/user/.local/share/code-sandbox-mcp/code-sandbox-mcp...
-Adding to Claude Desktop configuration...
-Added code-sandbox-mcp to /home/user/.config/Claude/claude_desktop_config.json
-Installation complete!
-You can now use code-sandbox-mcp with Claude Desktop or other AI applications.
-```
-
 #### Windows
 ```powershell
 # Run in PowerShell
@@ -47,9 +38,9 @@ irm https://raw.githubusercontent.com/Automata-Labs-team/code-sandbox-mcp/main/i
 The installer will:
 1. Check for Docker installation
 2. Download the appropriate binary for your system
-3. Create Claude Desktop configuration
+3. Create necessary configuration files
 
-### Manual Installation (Not necesary if automated installation is used)
+### Manual Installation
 
 1. Download the latest release for your platform from the [releases page](https://github.com/Automata-Labs-team/code-sandbox-mcp/releases)
 2. Place the binary in a directory in your PATH
@@ -57,51 +48,66 @@ The installer will:
    ```bash
    chmod +x code-sandbox-mcp
    ```
+
 ## 🛠️ Available Tools
 
-#### `run_code`
-Executes code snippets in an isolated Docker container.
+#### `sandbox_initialize`
+Initialize a new compute environment for code execution.
+Creates a container based on the specified Docker image.
 
 **Parameters:**
-- `code` (string, required): The code to run
-- `language` (enum, required): Programming language to use
-  - Supported values: `python`, `go`, `nodejs`
-  - Note: If your Python code requires external dependencies, it is recommended to use the `run_project` tool instead. Go and Node.js script dependencies are automatically installed.
+- `image` (string, optional): Docker image to use as the base environment
+  - Default: 'python:3.12-slim-bookworm'
 
 **Returns:**
-- Container execution output (stdout + stderr)
+- `container_id` that can be used with other tools to interact with this environment
 
-**Features:**
-- Automatic dependency detection and installation
-  - Python: Detects imports and installs via pip
-  - Node.js: Detects require/import statements and installs via npm
-  - Go: Detects imports and installs via go get
-- Automatic language-specific Docker image selection
-- TypeScript/JSX support with appropriate flags
-- Special handling for Go (code written to temporary file)
-- Real-time output streaming
-
-#### `run_project`
-Executes a project directory in a containerized environment.
+#### `copy_project`
+Copy a directory to the sandboxed filesystem.
 
 **Parameters:**
-- `project_dir` (string, required): Directory containing the project to run
-- `language` (enum, required): Programming language to use
-  - Supported values: `python`, `go`, `nodejs`
-- `entrypointCmd` (string, required): Command to run the project
-  - Examples:
-    - Python: `python main.py`
-    - Node.js: `node index.js`
-    - Go: `go run main.go`
+- `container_id` (string, required): ID of the container returned from the initialize call
+- `local_src_dir` (string, required): Path to a directory in the local file system
+- `dest_dir` (string, optional): Path to save the src directory in the sandbox environment
 
-**Returns:**
-- The resource URI of the container logs.
+#### `write_file`
+Write a file to the sandboxed filesystem.
 
-**Features:**
-- Automatic dependency detection and installation
-- Volume mounting of project directory
-- Language-specific configuration handling
-- Real-time log streaming
+**Parameters:**
+- `container_id` (string, required): ID of the container returned from the initialize call
+- `file_name` (string, required): Name of the file to create
+- `file_contents` (string, required): Contents to write to the file
+- `dest_dir` (string, optional): Directory to create the file in (Default: ${WORKDIR})
+
+#### `sandbox_exec`
+Execute commands in the sandboxed environment.
+
+**Parameters:**
+- `container_id` (string, required): ID of the container returned from the initialize call
+- `commands` (array, required): List of command(s) to run in the sandboxed environment
+  - Example: ["apt-get update", "pip install numpy", "python script.py"]
+
+#### `copy_file`
+Copy a single file to the sandboxed filesystem.
+
+**Parameters:**
+- `container_id` (string, required): ID of the container returned from the initialize call
+- `local_src_file` (string, required): Path to a file in the local file system
+- `dest_path` (string, optional): Path to save the file in the sandbox environment
+
+#### Container Logs Resource
+A dynamic resource that provides access to container logs.
+
+**Resource Path:** `containers://{id}/logs`  
+**MIME Type:** `text/plain`  
+**Description:** Returns all container logs from the specified container as a single text resource.
+
+## 🔐 Security Features
+
+- Isolated execution environment using Docker containers
+- Resource limitations through Docker container constraints
+- Separate stdout and stderr streams
+
 
 ## 🔧 Configuration
 
@@ -154,57 +160,6 @@ The installer automatically creates the configuration file. If you need to manua
 ### Other AI Applications
 
 For other AI applications that support MCP servers, configure them to use the `code-sandbox-mcp` binary as their code execution backend.
-
-## 🔧 Technical Details
-
-### Supported Languages
-
-| Language | File Extensions | Docker Image |
-|----------|----------------|--------------|
-| Python | .py | python:3.12-slim-bookworm |
-| Go | .go | golang:1.21-alpine |
-| Node.js | .js, .ts, .tsx, .jsx | node:23-slim |
-
-### Dependency Management
-
-The sandbox automatically detects and installs dependencies:
-
-- **Python**: 
-  - Detects imports like `import requests`, `from PIL import Image`
-  - Handles aliased imports (e.g., `PIL` → `pillow`)
-  - Filters out standard library imports
-  - Supports both direct imports and `__import__()` calls
-
-- **Node.js**: 
-  - Detects `require()` statements and ES6 imports
-  - Handles scoped packages (e.g., `@org/package`)
-  - Supports dynamic imports (`import()`)
-  - Filters out built-in Node.js modules
-
-- **Go**: 
-  - Detects package imports in both single-line and grouped formats
-  - Handles named and dot imports
-  - Filters out standard library packages
-  - Supports external dependencies via `go get`
-
-For project execution, the following files are used:
-- **Python**: requirements.txt, pyproject.toml, setup.py
-- **Go**: go.mod
-- **Node.js**: package.json
-
-### TypeScript Support
-
-Node.js 23+ includes built-in TypeScript support:
-- `--experimental-strip-types`: Enabled by default for .ts files
-- `--experimental-transform-types`: Used for .tsx files
-
-## 🔐 Security Features
-
-- Isolated execution environment using Docker containers
-- Resource limitations through Docker container constraints
-- Separate stdout and stderr streams
-- Clean container cleanup after execution
-- Project files mounted read-only in containers
 
 ## 🛠️ Development
 
