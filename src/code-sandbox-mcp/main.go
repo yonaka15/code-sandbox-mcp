@@ -83,7 +83,7 @@ func main() {
 	)
 
 	// Write a file to the sandboxed filesystem
-	writeFileTool := mcp.NewTool("write_file",
+	writeFileTool := mcp.NewTool("write_file_sandbox",
 		mcp.WithDescription(
 			"Write a file to the sandboxed filesystem. \n"+
 				"Creates a file with the specified content in the container.",
