@@ -142,6 +142,26 @@ func main() {
 		),
 	)
 
+	// Copy a file from container to local filesystem
+	copyFileFromContainerTool := mcp.NewTool("copy_file_from_sandbox",
+		mcp.WithDescription(
+			"Copy a single file from the sandboxed filesystem to the local filesystem. \n"+
+				"Transfers a file from the specified container to the local system.",
+		),
+		mcp.WithString("container_id",
+			mcp.Required(),
+			mcp.Description("ID of the container to copy from"),
+		),
+		mcp.WithString("container_src_path",
+			mcp.Required(),
+			mcp.Description("Path to the file in the container to copy"),
+		),
+		mcp.WithString("local_dest_path",
+			mcp.Description("Path where to save the file in the local filesystem"),
+			mcp.Description("Default: Current directory with the same filename"),
+		),
+	)
+
 	// Stop and remove a container
 	stopContainerTool := mcp.NewTool("sandbox_stop",
 		mcp.WithDescription(
@@ -170,6 +190,7 @@ func main() {
 	s.AddTool(writeFileTool, tools.WriteFile)
 	s.AddTool(execTool, tools.Exec)
 	s.AddTool(copyFileTool, tools.CopyFile)
+	s.AddTool(copyFileFromContainerTool, tools.CopyFileFromContainer)
 	s.AddTool(stopContainerTool, tools.StopContainer)
 	switch *transport {
 	case "stdio":

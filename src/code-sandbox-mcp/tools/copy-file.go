@@ -1,8 +1,11 @@
 package tools
 
 import (
+	"archive/tar"
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -101,15 +104,49 @@ func copyFileToContainer(ctx context.Context, containerID string, srcPath string
 	}
 	defer cli.Close()
 
-	// Open the source file
+	// Open and stat the source file
 	srcFile, err := os.Open(srcPath)
 	if err != nil {
 		return fmt.Errorf("failed to open source file: %w", err)
 	}
 	defer srcFile.Close()
 
-	// Copy the file content to the container
-	err = cli.CopyToContainer(ctx, containerID, filepath.Dir(destPath), srcFile, container.CopyToContainerOptions{})
+	srcInfo, err := srcFile.Stat()
+	if err != nil {
+		return fmt.Errorf("failed to stat source file: %w", err)
+	}
+
+	// Create a buffer to write our archive to
+	var buf bytes.Buffer
+
+	// Create a new tar archive
+	tw := tar.NewWriter(&buf)
+
+	// Create tar header
+	header := &tar.Header{
+		Name:    filepath.Base(destPath),
+		Size:    srcInfo.Size(),
+		Mode:    int64(srcInfo.Mode()),
+		ModTime: srcInfo.ModTime(),
+	}
+
+	// Write header
+	if err := tw.WriteHeader(header); err != nil {
+		return fmt.Errorf("failed to write tar header: %w", err)
+	}
+
+	// Copy file content to tar archive
+	if _, err := io.Copy(tw, srcFile); err != nil {
+		return fmt.Errorf("failed to write file content to tar: %w", err)
+	}
+
+	// Close tar writer
+	if err := tw.Close(); err != nil {
+		return fmt.Errorf("failed to close tar writer: %w", err)
+	}
+
+	// Copy the tar archive to the container
+	err = cli.CopyToContainer(ctx, containerID, filepath.Dir(destPath), &buf, container.CopyToContainerOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to copy to container: %w", err)
 	}
