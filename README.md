@@ -95,6 +95,15 @@ Copy a single file to the sandboxed filesystem.
 - `local_src_file` (string, required): Path to a file in the local file system
 - `dest_path` (string, optional): Path to save the file in the sandbox environment
 
+#### `sandbox_stop`
+Stop and remove a running container sandbox.
+
+**Parameters:**
+- `container_id` (string, required): ID of the container to stop and remove
+
+**Description:**
+Gracefully stops the specified container with a 10-second timeout and removes it along with its volumes.
+
 #### Container Logs Resource
 A dynamic resource that provides access to container logs.
 

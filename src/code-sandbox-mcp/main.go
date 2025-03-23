@@ -142,6 +142,18 @@ func main() {
 		),
 	)
 
+	// Stop and remove a container
+	stopContainerTool := mcp.NewTool("sandbox_stop",
+		mcp.WithDescription(
+			"Stop and remove a running container sandbox. \n"+
+				"Gracefully stops the specified container and removes it along with its volumes.",
+		),
+		mcp.WithString("container_id",
+			mcp.Required(),
+			mcp.Description("ID of the container to stop and remove"),
+		),
+	)
+
 	// Register dynamic resource for container logs
 	// Dynamic resource example - Container Logs by ID
 	containerLogsTemplate := mcp.NewResourceTemplate(
@@ -158,6 +170,7 @@ func main() {
 	s.AddTool(writeFileTool, tools.WriteFile)
 	s.AddTool(execTool, tools.Exec)
 	s.AddTool(copyFileTool, tools.CopyFile)
+	s.AddTool(stopContainerTool, tools.StopContainer)
 	switch *transport {
 	case "stdio":
 		if err := server.ServeStdio(s); err != nil {
