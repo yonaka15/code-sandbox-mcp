@@ -120,7 +120,7 @@ func main() {
 			mcp.Required(),
 			mcp.Description("List of command(s) to run in the sandboxed environment"),
 			mcp.Description("Example: [\"apt-get update\", \"pip install numpy\", \"python script.py\"]"),
-			mcp.Items(map[string]any{"type": "string"}), // This line was added
+			mcp.Items(map[string]any{"type": "string"}),
 		),
 	)
 
