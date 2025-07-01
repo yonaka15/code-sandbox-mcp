@@ -13,23 +13,26 @@ import (
 // InitializeEnvironment creates a new container for code execution
 func InitializeEnvironment(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	// Get the requested Docker image or use default
-	image, ok := request.Params.Arguments["image"].(string)
-	if !ok || image == "" {
+	image, _ := request.Params.Arguments["image"].(string)
+	if image == "" {
 		// Default to a slim debian image with Python pre-installed
 		image = "python:3.12-slim-bookworm"
 	}
 
+	// Get the optional container name
+	name, _ := request.Params.Arguments["name"].(string)
+
 	// Create and start the container
-	containerId, err := createContainer(ctx, image)
+	containerID, err := createContainer(ctx, image, name)
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error: %v", err)), nil
 	}
 
-	return mcp.NewToolResultText(fmt.Sprintf("container_id: %s", containerId)), nil
+	return mcp.NewToolResultText(fmt.Sprintf("container_id: %s", containerID)), nil
 }
 
 // createContainer creates a new Docker container and returns its ID
-func createContainer(ctx context.Context, image string) (string, error) {
+func createContainer(ctx context.Context, image string, name string) (string, error) {
 	cli, err := client.NewClientWithOpts(
 		client.FromEnv,
 		client.WithAPIVersionNegotiation(),
@@ -48,11 +51,11 @@ func createContainer(ctx context.Context, image string) (string, error) {
 
 	// Create container config with a working directory
 	config := &container.Config{
-		Image:      image,
-		WorkingDir: "/app",
-		Tty:        true,
-		OpenStdin:  true,
-		StdinOnce:  false,
+		Image:       image,
+		WorkingDir:  "/app",
+		Tty:         true,
+		OpenStdin:   true,
+		StdinOnce:   false,
 	}
 
 	// Create host config
@@ -67,7 +70,7 @@ func createContainer(ctx context.Context, image string) (string, error) {
 		hostConfig,
 		nil,
 		nil,
-		"",
+		name, // Use the provided name here
 	)
 	if err != nil {
 		return "", fmt.Errorf("failed to create container: %w", err)
