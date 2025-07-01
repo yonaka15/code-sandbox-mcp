@@ -18,9 +18,9 @@ import (
 // CopyFile copies a single local file to a container's filesystem
 func CopyFile(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	// Extract parameters
-	containerID, ok := request.Params.Arguments["container_id"].(string)
-	if !ok || containerID == "" {
-		return mcp.NewToolResultText("container_id is required"), nil
+	containerIDOrName, ok := request.Params.Arguments["container_id_or_name"].(string)
+	if !ok || containerIDOrName == "" {
+		return mcp.NewToolResultText("container_id_or_name is required"), nil
 	}
 
 	localSrcFile, ok := request.Params.Arguments["local_src_file"].(string)
@@ -53,20 +53,20 @@ func CopyFile(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolRe
 
 	// Create destination directory in container if it doesn't exist
 	destDir := filepath.Dir(destPath)
-	if err := createDirectoryInContainer(ctx, containerID, destDir); err != nil {
+	if err := createDirectoryInContainer(ctx, containerIDOrName, destDir); err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error creating destination directory: %v", err)), nil
 	}
 
 	// Copy the file to the container
-	if err := copyFileToContainer(ctx, containerID, localSrcFile, destPath); err != nil {
+	if err := copyFileToContainer(ctx, containerIDOrName, localSrcFile, destPath); err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error copying file to container: %v", err)), nil
 	}
 
-	return mcp.NewToolResultText(fmt.Sprintf("Successfully copied %s to %s in container %s", localSrcFile, destPath, containerID)), nil
+	return mcp.NewToolResultText(fmt.Sprintf("Successfully copied %s to %s in container %s", localSrcFile, destPath, containerIDOrName)), nil
 }
 
 // createDirectoryInContainer creates a directory in the container if it doesn't exist
-func createDirectoryInContainer(ctx context.Context, containerID string, dirPath string) error {
+func createDirectoryInContainer(ctx context.Context, containerIDOrName string, dirPath string) error {
 	cli, err := client.NewClientWithOpts(
 		client.FromEnv,
 		client.WithAPIVersionNegotiation(),
@@ -77,7 +77,7 @@ func createDirectoryInContainer(ctx context.Context, containerID string, dirPath
 	defer cli.Close()
 
 	createDirCmd := []string{"mkdir", "-p", dirPath}
-	exec, err := cli.ContainerExecCreate(ctx, containerID, container.ExecOptions{
+	exec, err := cli.ContainerExecCreate(ctx, containerIDOrName, container.ExecOptions{
 		Cmd:          createDirCmd,
 		AttachStdout: true,
 		AttachStderr: true,
@@ -94,7 +94,7 @@ func createDirectoryInContainer(ctx context.Context, containerID string, dirPath
 }
 
 // copyFileToContainer copies a single file to the container
-func copyFileToContainer(ctx context.Context, containerID string, srcPath string, destPath string) error {
+func copyFileToContainer(ctx context.Context, containerIDOrName string, srcPath string, destPath string) error {
 	cli, err := client.NewClientWithOpts(
 		client.FromEnv,
 		client.WithAPIVersionNegotiation(),
@@ -102,6 +102,7 @@ func copyFileToContainer(ctx context.Context, containerID string, srcPath string
 	if err != nil {
 		return fmt.Errorf("failed to create Docker client: %w", err)
 	}
+
 	defer cli.Close()
 
 	// Open and stat the source file
@@ -146,7 +147,7 @@ func copyFileToContainer(ctx context.Context, containerID string, srcPath string
 	}
 
 	// Copy the tar archive to the container
-	err = cli.CopyToContainer(ctx, containerID, filepath.Dir(destPath), &buf, container.CopyToContainerOptions{})
+	err = cli.CopyToContainer(ctx, containerIDOrName, filepath.Dir(destPath), &buf, container.CopyToContainerOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to copy to container: %w", err)
 	}
