@@ -47,7 +47,7 @@ func main() {
 	port := flag.String("port", "9520", "Port to listen on")
 	transport := flag.String("transport", "stdio", "Transport to use (stdio, sse)")
 	flag.Parse()
-	s := server.NewMCPServer("code-sandbox-mcp", "v1.0.0", server.WithLogging(), server.WithResourceCapabilities(true, true), server.WithPromptCapabilities(false))
+	s := server.NewMCPServer("code-sandbox-mcp", "v1.1.0", server.WithLogging(), server.WithResourceCapabilities(true, true), server.WithPromptCapabilities(false))
 	s.AddNotificationHandler("notifications/error", handleNotification)
 	// Register tools
 	// Initialize a new compute environment for code execution
@@ -61,6 +61,14 @@ func main() {
 			mcp.Description("Docker image to use as the base environment (e.g., 'python:3.12-slim-bookworm')"),
 			mcp.DefaultString("python:3.12-slim-bookworm"),
 		),
+		mcp.WithString("name",
+			mcp.Description("Optional human-readable name for the sandbox container."),
+		),
+	)
+
+	// List running sandboxes
+	listTool := mcp.NewTool("sandbox_list",
+		mcp.WithDescription("Lists all running sandbox containers, returning their ID, name, image, and status."),
 	)
 
 	// Copy a directory to the sandboxed filesystem
@@ -69,9 +77,9 @@ func main() {
 			"Copy a directory to the sandboxed filesystem. \n"+
 				"Transfers a local directory and its contents to the specified container.",
 		),
-		mcp.WithString("container_id",
+		mcp.WithString("container_id_or_name",
 			mcp.Required(),
-			mcp.Description("ID of the container returned from the initialize call"),
+			mcp.Description("ID or name of the container returned from the initialize call"),
 		),
 		mcp.WithString("local_src_dir",
 			mcp.Required(),
@@ -88,9 +96,9 @@ func main() {
 			"Write a file to the sandboxed filesystem. \n"+
 				"Creates a file with the specified content in the container.",
 		),
-		mcp.WithString("container_id",
+		mcp.WithString("container_id_or_name",
 			mcp.Required(),
-			mcp.Description("ID of the container returned from the initialize call"),
+			mcp.Description("ID or name of the container returned from the initialize call"),
 		),
 		mcp.WithString("file_name",
 			mcp.Required(),
@@ -112,9 +120,9 @@ func main() {
 			"Execute commands in the sandboxed environment. \n"+
 				"Runs one or more shell commands in the specified container and returns the output.",
 		),
-		mcp.WithString("container_id",
+		mcp.WithString("container_id_or_name",
 			mcp.Required(),
-			mcp.Description("ID of the container returned from the initialize call"),
+			mcp.Description("ID or name of the container returned from the initialize call"),
 		),
 		mcp.WithArray("commands",
 			mcp.Required(),
@@ -130,9 +138,9 @@ func main() {
 			"Copy a single file to the sandboxed filesystem. \n"+
 				"Transfers a local file to the specified container.",
 		),
-		mcp.WithString("container_id",
+		mcp.WithString("container_id_or_name",
 			mcp.Required(),
-			mcp.Description("ID of the container returned from the initialize call"),
+			mcp.Description("ID or name of the container returned from the initialize call"),
 		),
 		mcp.WithString("local_src_file",
 			mcp.Required(),
@@ -149,9 +157,9 @@ func main() {
 			"Copy a single file from the sandboxed filesystem to the local filesystem. \n"+
 				"Transfers a file from the specified container to the local system.",
 		),
-		mcp.WithString("container_id",
+		mcp.WithString("container_id_or_name",
 			mcp.Required(),
-			mcp.Description("ID of the container to copy from"),
+			mcp.Description("ID or name of the container to copy from"),
 		),
 		mcp.WithString("container_src_path",
 			mcp.Required(),
@@ -169,9 +177,9 @@ func main() {
 			"Stop and remove a running container sandbox. \n"+
 				"Gracefully stops the specified container and removes it along with its volumes.",
 		),
-		mcp.WithString("container_id",
+		mcp.WithString("container_id_or_name",
 			mcp.Required(),
-			mcp.Description("ID of the container to stop and remove"),
+			mcp.Description("ID or name of the container to stop and remove"),
 		),
 	)
 
@@ -187,6 +195,7 @@ func main() {
 
 	s.AddResourceTemplate(containerLogsTemplate, resources.GetContainerLogs)
 	s.AddTool(initializeTool, tools.InitializeEnvironment)
+	s.AddTool(listTool, tools.ListSandboxes)
 	s.AddTool(copyProjectTool, tools.CopyProject)
 	s.AddTool(writeFileTool, tools.WriteFile)
 	s.AddTool(execTool, tools.Exec)
