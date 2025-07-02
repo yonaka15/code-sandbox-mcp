@@ -70,6 +70,7 @@ func main() {
 	listTool := mcp.NewTool("sandbox_list",
 		mcp.WithDescription("Lists all running sandbox containers, returning their ID, name, image, and status."),
 	)
+	listTool.InputSchema.Properties = make(map[string]*mcp.Schema)
 
 	// Copy a directory to the sandboxed filesystem
 	copyProjectTool := mcp.NewTool("copy_project",
