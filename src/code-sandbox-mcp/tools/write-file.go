@@ -16,9 +16,9 @@ import (
 // WriteFile writes a file to the container's filesystem
 func WriteFile(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	// Extract parameters
-	containerID, ok := request.Params.Arguments["container_id"].(string)
-	if !ok || containerID == "" {
-		return mcp.NewToolResultText("container_id is required"), nil
+	containerIDOrName, ok := request.Params.Arguments["container_id_or_name"].(string)
+	if !ok || containerIDOrName == "" {
+		return mcp.NewToolResultText("container_id_or_name is required"), nil
 	}
 
 	fileName, ok := request.Params.Arguments["file_name"].(string)
@@ -47,20 +47,20 @@ func WriteFile(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolR
 	fullPath := filepath.Join(destDir, fileName)
 
 	// Create the directory if it doesn't exist
-	if err := ensureDirectoryExists(ctx, containerID, destDir); err != nil {
+	if err := ensureDirectoryExists(ctx, containerIDOrName, destDir); err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error creating directory: %v", err)), nil
 	}
 
 	// Write the file
-	if err := writeFileToContainer(ctx, containerID, fullPath, fileContents); err != nil {
+	if err := writeFileToContainer(ctx, containerIDOrName, fullPath, fileContents); err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error writing file: %v", err)), nil
 	}
 
-	return mcp.NewToolResultText(fmt.Sprintf("Successfully wrote file %s to container %s", fullPath, containerID)), nil
+	return mcp.NewToolResultText(fmt.Sprintf("Successfully wrote file %s to container %s", fullPath, containerIDOrName)), nil
 }
 
 // ensureDirectoryExists creates a directory in the container if it doesn't already exist
-func ensureDirectoryExists(ctx context.Context, containerID, dirPath string) error {
+func ensureDirectoryExists(ctx context.Context, containerIDOrName, dirPath string) error {
 	cli, err := client.NewClientWithOpts(
 		client.FromEnv,
 		client.WithAPIVersionNegotiation(),
@@ -72,7 +72,7 @@ func ensureDirectoryExists(ctx context.Context, containerID, dirPath string) err
 
 	// Create the directory if it doesn't exist
 	cmd := []string{"mkdir", "-p", dirPath}
-	exec, err := cli.ContainerExecCreate(ctx, containerID, container.ExecOptions{
+	exec, err := cli.ContainerExecCreate(ctx, containerIDOrName, container.ExecOptions{
 		Cmd: cmd,
 	})
 	if err != nil {
@@ -87,7 +87,7 @@ func ensureDirectoryExists(ctx context.Context, containerID, dirPath string) err
 }
 
 // writeFileToContainer writes file contents to a file in the container
-func writeFileToContainer(ctx context.Context, containerID, filePath, contents string) error {
+func writeFileToContainer(ctx context.Context, containerIDOrName, filePath, contents string) error {
 	cli, err := client.NewClientWithOpts(
 		client.FromEnv,
 		client.WithAPIVersionNegotiation(),
@@ -109,7 +109,7 @@ func writeFileToContainer(ctx context.Context, containerID, filePath, contents s
 	}
 
 	// Create the exec instance
-	execIDResp, err := cli.ContainerExecCreate(ctx, containerID, execConfig)
+	execIDResp, err := cli.ContainerExecCreate(ctx, containerIDOrName, execConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create exec: %w", err)
 	}

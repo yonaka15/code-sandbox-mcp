@@ -14,9 +14,9 @@ import (
 // Exec executes commands in a container
 func Exec(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	// Extract parameters
-	containerID, ok := request.Params.Arguments["container_id"].(string)
-	if !ok || containerID == "" {
-		return mcp.NewToolResultText("container_id is required"), nil
+	containerIDOrName, ok := request.Params.Arguments["container_id_or_name"].(string)
+	if !ok || containerIDOrName == "" {
+		return mcp.NewToolResultText("container_id_or_name is required"), nil
 	}
 
 	// Commands can be a single string or an array of strings
@@ -51,7 +51,7 @@ func Exec(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult
 		outputBuilder.WriteString(fmt.Sprintf("$ %s\n", cmd))
 
 		// Execute the command
-		stdout, stderr, exitCode, err := executeCommandWithOutput(ctx, containerID, cmd)
+		stdout, stderr, exitCode, err := executeCommandWithOutput(ctx, containerIDOrName, cmd)
 		if err != nil {
 			return mcp.NewToolResultText(fmt.Sprintf("Error executing command: %v", err)), nil
 		}
@@ -82,7 +82,7 @@ func Exec(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult
 }
 
 // executeCommandWithOutput runs a command in a container and returns its stdout, stderr, exit code, and any error
-func executeCommandWithOutput(ctx context.Context, containerID string, cmd string) (stdout string, stderr string, exitCode int, err error) {
+func executeCommandWithOutput(ctx context.Context, containerIDOrName string, cmd string) (stdout string, stderr string, exitCode int, err error) {
 	cli, err := client.NewClientWithOpts(
 		client.FromEnv,
 		client.WithAPIVersionNegotiation(),
@@ -90,10 +90,11 @@ func executeCommandWithOutput(ctx context.Context, containerID string, cmd strin
 	if err != nil {
 		return "", "", -1, fmt.Errorf("failed to create Docker client: %w", err)
 	}
+
 	defer cli.Close()
 
 	// Create the exec configuration
-	exec, err := cli.ContainerExecCreate(ctx, containerID, container.ExecOptions{
+	exec, err := cli.ContainerExecCreate(ctx, containerIDOrName, container.ExecOptions{
 		Cmd:          []string{"sh", "-c", cmd},
 		AttachStdout: true,
 		AttachStderr: true,

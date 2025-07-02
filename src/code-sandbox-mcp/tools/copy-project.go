@@ -19,9 +19,9 @@ import (
 // CopyProject copies a local directory to a container's filesystem
 func CopyProject(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	// Extract parameters
-	containerID, ok := request.Params.Arguments["container_id"].(string)
-	if !ok || containerID == "" {
-		return mcp.NewToolResultText("container_id is required"), nil
+	containerIDOrName, ok := request.Params.Arguments["container_id_or_name"].(string)
+	if !ok || containerIDOrName == "" {
+		return mcp.NewToolResultText("container_id_or_name is required"), nil
 	}
 
 	localSrcDir, ok := request.Params.Arguments["local_src_dir"].(string)
@@ -62,25 +62,25 @@ func CopyProject(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToo
 	tarFileName := filepath.Join("/tmp", fmt.Sprintf("project_%s.tar", filepath.Base(localSrcDir)))
 
 	// Copy the tar archive to the container's temp directory
-	err = copyToContainer(ctx, containerID, "/tmp", tarBuffer)
+	err = copyTarToContainer(ctx, containerIDOrName, "/tmp", tarBuffer)
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error copying to container: %v", err)), nil
 	}
 
 	// Extract the tar archive in the container
-	err = extractTarInContainer(ctx, containerID, tarFileName, destDir)
+	err = extractTarInContainer(ctx, containerIDOrName, tarFileName, destDir)
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error extracting archive in container: %v", err)), nil
 	}
 
 	// Clean up the temporary tar file
 	cleanupCmd := []string{"rm", tarFileName}
-	if err := executeCommand(ctx, containerID, cleanupCmd); err != nil {
+	if err := executeCommandAndWait(ctx, containerIDOrName, cleanupCmd); err != nil {
 		// Just log the error but don't fail the operation
 		fmt.Printf("Warning: Failed to clean up temporary tar file: %v\n", err)
 	}
 
-	return mcp.NewToolResultText(fmt.Sprintf("Successfully copied %s to %s in container %s", localSrcDir, destDir, containerID)), nil
+	return mcp.NewToolResultText(fmt.Sprintf("Successfully copied %s to %s in container %s", localSrcDir, destDir, containerIDOrName)), nil
 }
 
 // createTarArchive creates a tar archive of the specified source path
@@ -142,8 +142,8 @@ func createTarArchive(srcPath string) (io.Reader, error) {
 	return buf, nil
 }
 
-// copyToContainer copies a tar archive to a container
-func copyToContainer(ctx context.Context, containerID string, destPath string, tarArchive io.Reader) error {
+// copyTarToContainer copies a tar archive to a container
+func copyTarToContainer(ctx context.Context, containerIDOrName string, destPath string, tarArchive io.Reader) error {
 	cli, err := client.NewClientWithOpts(
 		client.FromEnv,
 		client.WithAPIVersionNegotiation(),
@@ -154,19 +154,19 @@ func copyToContainer(ctx context.Context, containerID string, destPath string, t
 	defer cli.Close()
 
 	// Make sure the container exists and is running
-	_, err = cli.ContainerInspect(ctx, containerID)
+	_, err = cli.ContainerInspect(ctx, containerIDOrName)
 	if err != nil {
 		return fmt.Errorf("failed to inspect container: %w", err)
 	}
 
 	// Create the destination directory in the container if it doesn't exist
 	createDirCmd := []string{"mkdir", "-p", destPath}
-	if err := executeCommand(ctx, containerID, createDirCmd); err != nil {
+	if err := executeCommandAndWait(ctx, containerIDOrName, createDirCmd); err != nil {
 		return fmt.Errorf("failed to create destination directory: %w", err)
 	}
 
 	// Copy the tar archive to the container
-	err = cli.CopyToContainer(ctx, containerID, destPath, tarArchive, container.CopyToContainerOptions{})
+	err = cli.CopyToContainer(ctx, containerIDOrName, destPath, tarArchive, container.CopyToContainerOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to copy to container: %w", err)
 	}
@@ -175,24 +175,24 @@ func copyToContainer(ctx context.Context, containerID string, destPath string, t
 }
 
 // extractTarInContainer extracts a tar archive inside the container
-func extractTarInContainer(ctx context.Context, containerID string, tarFilePath string, destPath string) error {
+func extractTarInContainer(ctx context.Context, containerIDOrName string, tarFilePath string, destPath string) error {
 	// Create the destination directory if it doesn't exist
 	mkdirCmd := []string{"mkdir", "-p", destPath}
-	if err := executeCommand(ctx, containerID, mkdirCmd); err != nil {
+	if err := executeCommandAndWait(ctx, containerIDOrName, mkdirCmd); err != nil {
 		return fmt.Errorf("failed to create destination directory: %w", err)
 	}
 
 	// Extract the tar archive
 	extractCmd := []string{"tar", "-xf", tarFilePath, "-C", destPath}
-	if err := executeCommand(ctx, containerID, extractCmd); err != nil {
+	if err := executeCommandAndWait(ctx, containerIDOrName, extractCmd); err != nil {
 		return fmt.Errorf("failed to extract tar archive: %w", err)
 	}
 
 	return nil
 }
 
-// executeCommand runs a command in a container and waits for it to complete
-func executeCommand(ctx context.Context, containerID string, cmd []string) error {
+// executeCommandAndWait runs a command in a container and waits for it to complete
+func executeCommandAndWait(ctx context.Context, containerIDOrName string, cmd []string) error {
 	cli, err := client.NewClientWithOpts(
 		client.FromEnv,
 		client.WithAPIVersionNegotiation(),
@@ -200,10 +200,11 @@ func executeCommand(ctx context.Context, containerID string, cmd []string) error
 	if err != nil {
 		return fmt.Errorf("failed to create Docker client: %w", err)
 	}
+
 	defer cli.Close()
 
 	// Create the exec configuration
-	exec, err := cli.ContainerExecCreate(ctx, containerID, container.ExecOptions{
+	exec, err := cli.ContainerExecCreate(ctx, containerIDOrName, container.ExecOptions{
 		Cmd:          cmd,
 		AttachStdout: true,
 		AttachStderr: true,

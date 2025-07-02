@@ -16,9 +16,9 @@ import (
 // CopyFileFromContainer copies a single file from a container's filesystem to the local filesystem
 func CopyFileFromContainer(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	// Extract parameters
-	containerID, ok := request.Params.Arguments["container_id"].(string)
-	if !ok || containerID == "" {
-		return mcp.NewToolResultText("container_id is required"), nil
+	containerIDOrName, ok := request.Params.Arguments["container_id_or_name"].(string)
+	if !ok || containerIDOrName == "" {
+		return mcp.NewToolResultText("container_id_or_name is required"), nil
 	}
 
 	containerSrcPath, ok := request.Params.Arguments["container_src_path"].(string)
@@ -45,15 +45,15 @@ func CopyFileFromContainer(ctx context.Context, request mcp.CallToolRequest) (*m
 	}
 
 	// Copy the file from the container
-	if err := copyFileFromContainer(ctx, containerID, containerSrcPath, localDestPath); err != nil {
+	if err := copySingleFileFromContainer(ctx, containerIDOrName, containerSrcPath, localDestPath); err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error copying file from container: %v", err)), nil
 	}
 
-	return mcp.NewToolResultText(fmt.Sprintf("Successfully copied %s from container %s to %s", containerSrcPath, containerID, localDestPath)), nil
+	return mcp.NewToolResultText(fmt.Sprintf("Successfully copied %s from container %s to %s", containerSrcPath, containerIDOrName, localDestPath)), nil
 }
 
-// copyFileFromContainer copies a single file from the container to the local filesystem
-func copyFileFromContainer(ctx context.Context, containerID string, srcPath string, destPath string) error {
+// copySingleFileFromContainer copies a single file from the container to the local filesystem
+func copySingleFileFromContainer(ctx context.Context, containerIDOrName string, srcPath string, destPath string) error {
 	cli, err := client.NewClientWithOpts(
 		client.FromEnv,
 		client.WithAPIVersionNegotiation(),
@@ -64,7 +64,7 @@ func copyFileFromContainer(ctx context.Context, containerID string, srcPath stri
 	defer cli.Close()
 
 	// Create reader for the file from container
-	reader, stat, err := cli.CopyFromContainer(ctx, containerID, srcPath)
+	reader, stat, err := cli.CopyFromContainer(ctx, containerIDOrName, srcPath)
 	if err != nil {
 		return fmt.Errorf("failed to copy from container: %w", err)
 	}
