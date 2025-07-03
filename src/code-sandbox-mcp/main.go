@@ -69,10 +69,6 @@ func main() {
 	// List running sandboxes
 	listTool := mcp.NewTool("sandbox_list",
 		mcp.WithDescription("Lists all running sandbox containers, returning their ID, name, image, and status."),
-		mcp.WithInputSchema(map[string]any{
-			"type": "object",
-			"properties": map[string]any{},
-		}),
 	)
 
 	// Copy a directory to the sandboxed filesystem
