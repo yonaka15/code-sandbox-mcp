@@ -15,14 +15,14 @@ import (
 
 // CopyFileFromContainer copies a single file from a container's filesystem to the local filesystem
 func CopyFileFromContainer(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	// Extract parameters
-	containerIDOrName, ok := request.Params.Arguments["container_id_or_name"].(string)
-	if !ok || containerIDOrName == "" {
+	// Extract parameters using new API
+	containerIDOrName, err := request.RequireString("container_id_or_name")
+	if err != nil {
 		return mcp.NewToolResultText("container_id_or_name is required"), nil
 	}
 
-	containerSrcPath, ok := request.Params.Arguments["container_src_path"].(string)
-	if !ok || containerSrcPath == "" {
+	containerSrcPath, err := request.RequireString("container_src_path")
+	if err != nil {
 		return mcp.NewToolResultText("container_src_path is required"), nil
 	}
 
@@ -32,8 +32,8 @@ func CopyFileFromContainer(ctx context.Context, request mcp.CallToolRequest) (*m
 	}
 
 	// Get the local destination path (optional parameter)
-	localDestPath, ok := request.Params.Arguments["local_dest_path"].(string)
-	if !ok || localDestPath == "" {
+	localDestPath := request.GetString("local_dest_path", "")
+	if localDestPath == "" {
 		// Default: use the name of the source file in current directory
 		localDestPath = filepath.Base(containerSrcPath)
 	}

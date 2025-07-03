@@ -12,15 +12,11 @@ import (
 
 // InitializeEnvironment creates a new container for code execution
 func InitializeEnvironment(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	// Get the requested Docker image or use default
-	image, _ := request.Params.Arguments["image"].(string)
-	if image == "" {
-		// Default to a slim debian image with Python pre-installed
-		image = "python:3.12-slim-bookworm"
-	}
+	// Get the requested Docker image or use default using new API
+	image := request.GetString("image", "python:3.12-slim-bookworm")
 
 	// Get the optional container name
-	name, _ := request.Params.Arguments["name"].(string)
+	name := request.GetString("name", "")
 
 	// Create and start the container
 	containerID, err := createContainer(ctx, image, name)

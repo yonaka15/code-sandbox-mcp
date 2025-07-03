@@ -18,14 +18,14 @@ import (
 
 // CopyProject copies a local directory to a container's filesystem
 func CopyProject(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	// Extract parameters
-	containerIDOrName, ok := request.Params.Arguments["container_id_or_name"].(string)
-	if !ok || containerIDOrName == "" {
+	// Extract parameters using new API
+	containerIDOrName, err := request.RequireString("container_id_or_name")
+	if err != nil {
 		return mcp.NewToolResultText("container_id_or_name is required"), nil
 	}
 
-	localSrcDir, ok := request.Params.Arguments["local_src_dir"].(string)
-	if !ok || localSrcDir == "" {
+	localSrcDir, err := request.RequireString("local_src_dir")
+	if err != nil {
 		return mcp.NewToolResultText("local_src_dir is required"), nil
 	}
 
@@ -41,8 +41,8 @@ func CopyProject(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToo
 	}
 
 	// Get the destination path (optional parameter)
-	destDir, ok := request.Params.Arguments["dest_dir"].(string)
-	if !ok || destDir == "" {
+	destDir := request.GetString("dest_dir", "")
+	if destDir == "" {
 		// Default: use the name of the source directory
 		destDir = filepath.Join("/app", filepath.Base(localSrcDir))
 	} else {

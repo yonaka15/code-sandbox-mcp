@@ -11,9 +11,9 @@ import (
 
 // StopContainer stops and removes a container by its ID or name
 func StopContainer(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	// Get the container ID or name from the request
-	containerIdOrName, ok := request.Params.Arguments["container_id_or_name"].(string)
-	if !ok || containerIdOrName == "" {
+	// Get the container ID or name from the request using new API
+	containerIdOrName, err := request.RequireString("container_id_or_name")
+	if err != nil {
 		return mcp.NewToolResultText("Error: container_id_or_name is required"), nil
 	}
 

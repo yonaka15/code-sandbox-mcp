@@ -13,15 +13,16 @@ import (
 
 // Exec executes commands in a container
 func Exec(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	// Extract parameters
-	containerIDOrName, ok := request.Params.Arguments["container_id_or_name"].(string)
-	if !ok || containerIDOrName == "" {
+	// Extract parameters using new API
+	containerIDOrName, err := request.RequireString("container_id_or_name")
+	if err != nil {
 		return mcp.NewToolResultText("container_id_or_name is required"), nil
 	}
 
 	// Commands can be a single string or an array of strings
 	var commands []string
-	if cmdsArr, ok := request.Params.Arguments["commands"].([]interface{}); ok {
+	args := request.GetArguments()
+	if cmdsArr, ok := args["commands"].([]interface{}); ok {
 		// It's an array of commands
 		for _, cmd := range cmdsArr {
 			if cmdStr, ok := cmd.(string); ok {
@@ -30,7 +31,7 @@ func Exec(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult
 				return mcp.NewToolResultText("Each command must be a string"), nil
 			}
 		}
-	} else if cmdStr, ok := request.Params.Arguments["commands"].(string); ok {
+	} else if cmdStr, ok := args["commands"].(string); ok {
 		// It's a single command string
 		commands = []string{cmdStr}
 	} else {

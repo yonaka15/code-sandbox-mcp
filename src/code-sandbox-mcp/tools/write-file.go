@@ -15,25 +15,25 @@ import (
 
 // WriteFile writes a file to the container's filesystem
 func WriteFile(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	// Extract parameters
-	containerIDOrName, ok := request.Params.Arguments["container_id_or_name"].(string)
-	if !ok || containerIDOrName == "" {
+	// Extract parameters using new API
+	containerIDOrName, err := request.RequireString("container_id_or_name")
+	if err != nil {
 		return mcp.NewToolResultText("container_id_or_name is required"), nil
 	}
 
-	fileName, ok := request.Params.Arguments["file_name"].(string)
-	if !ok || fileName == "" {
+	fileName, err := request.RequireString("file_name")
+	if err != nil {
 		return mcp.NewToolResultText("file_name is required"), nil
 	}
 
-	fileContents, ok := request.Params.Arguments["file_contents"].(string)
-	if !ok {
+	fileContents, err := request.RequireString("file_contents")
+	if err != nil {
 		return mcp.NewToolResultText("file_contents is required"), nil
 	}
 
 	// Get the destination path (optional parameter)
-	destDir, ok := request.Params.Arguments["dest_dir"].(string)
-	if !ok || destDir == "" {
+	destDir := request.GetString("dest_dir", "")
+	if destDir == "" {
 		// Default: write to the working directory
 		destDir = "/app"
 	} else {

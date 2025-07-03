@@ -17,14 +17,14 @@ import (
 
 // CopyFile copies a single local file to a container's filesystem
 func CopyFile(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	// Extract parameters
-	containerIDOrName, ok := request.Params.Arguments["container_id_or_name"].(string)
-	if !ok || containerIDOrName == "" {
+	// Extract parameters using new API
+	containerIDOrName, err := request.RequireString("container_id_or_name")
+	if err != nil {
 		return mcp.NewToolResultText("container_id_or_name is required"), nil
 	}
 
-	localSrcFile, ok := request.Params.Arguments["local_src_file"].(string)
-	if !ok || localSrcFile == "" {
+	localSrcFile, err := request.RequireString("local_src_file")
+	if err != nil {
 		return mcp.NewToolResultText("local_src_file is required"), nil
 	}
 
@@ -40,8 +40,8 @@ func CopyFile(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolRe
 	}
 
 	// Get the destination path (optional parameter)
-	destPath, ok := request.Params.Arguments["dest_path"].(string)
-	if !ok || destPath == "" {
+	destPath := request.GetString("dest_path", "")
+	if destPath == "" {
 		// Default: use the name of the source file
 		destPath = filepath.Join("/app", filepath.Base(localSrcFile))
 	} else {
